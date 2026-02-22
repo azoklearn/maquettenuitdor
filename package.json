@@ -1,0 +1,17 @@
+{
+  "name": "nuitdor-loveroom",
+  "version": "1.0.0",
+  "description": "Site Nuit d'Or Loveroom — réservation et paiement Stripe",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.6.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "resend": "^4.0.0",
+    "stripe": "^17.2.0"
+  }
+}

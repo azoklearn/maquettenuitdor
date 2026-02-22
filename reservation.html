@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Réservez votre love room Nuit d'Or — Choisissez votre date et votre pack romantique (champagne, rose, douceurs). Paiement sécurisé Stripe.">
+  <title>Réservation — Nuit d'Or Loveroom</title>
+  <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+</head>
+<body class="page-reservation">
+  <header class="header">
+    <div class="header-inner">
+      <a href="index.html" class="logo-wrap" aria-label="Nuit d'Or Loveroom accueil">
+        <img src="images/logo.jpeg" alt="Nuit d'Or Loveroom" class="logo-img">
+        <span class="logo">Nuit d'Or Loveroom</span>
+      </a>
+      <nav class="nav">
+        <a href="index.html">Accueil</a>
+        <a href="reservation.html">Réservation</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <span class="hero-symbol" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" width="40" height="40">
+          <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="1" fill="none" opacity="0.4"/>
+          <path d="M24 8a16 16 0 0 1 0 32c-3.2 0-8-5.5-8-16S20.8 8 24 8z" fill="currentColor" opacity="0.5"/>
+          <circle cx="32" cy="14" r="1.5" fill="currentColor" opacity="0.5"/>
+        </svg>
+      </span>
+      <h1>Réservez votre escapade</h1>
+      <p class="sous-titre">
+        Choisissez vos dates et votre pack. Les créneaux déjà réservés sont indisponibles. Paiement sécurisé pour confirmer.
+      </p>
+    </section>
+
+    <div class="reservation-layout">
+      <form class="reservation-form" id="form-reservation" action="#" method="post">
+        <div class="form-block block-calendrier">
+          <h3><span class="form-block-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          </span> Choisissez vos dates</h3>
+          <p class="form-block-intro">Les dates déjà réservées sont grisées et non sélectionnables.</p>
+          <div class="calendrier-reservation">
+            <div class="form-group">
+              <label for="date-arrivee">Date d'arrivée</label>
+              <input type="text" id="date-arrivee" name="date_arrivee" placeholder="Choisir la date" required readonly autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label for="date-depart">Date de départ</label>
+              <input type="text" id="date-depart" name="date_depart" placeholder="Choisir la date" required readonly autocomplete="off">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-block">
+          <h3><span class="form-block-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M20 12v10H4V12M2 7h20v5H2V7zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+          </span> Pack romantique (optionnel)</h3>
+          <p class="form-block-intro">Agrémentez votre séjour avec une touche d'exception.</p>
+          <div class="packs">
+            <label class="pack-option">
+              <input type="radio" name="pack" value="aucun" checked>
+              <span class="pack-content">
+                <span class="titre">Sans pack</span>
+                <span class="prix">—</span>
+                <span class="desc">Uniquement la chambre</span>
+              </span>
+            </label>
+            <label class="pack-option">
+              <input type="radio" name="pack" value="champagne">
+              <span class="pack-content">
+                <span class="titre">Champagne</span>
+                <span class="prix">+ 45 €</span>
+                <span class="desc">Bouteille de champagne et flûtes</span>
+              </span>
+            </label>
+            <label class="pack-option">
+              <input type="radio" name="pack" value="romance">
+              <span class="pack-content">
+                <span class="titre">Romance</span>
+                <span class="prix">+ 75 €</span>
+                <span class="desc">Champagne, fraises et chocolats</span>
+              </span>
+            </label>
+            <label class="pack-option">
+              <input type="radio" name="pack" value="luxe">
+              <span class="pack-content">
+                <span class="titre">Luxe</span>
+                <span class="prix">+ 120 €</span>
+                <span class="desc">Champagne, rose, pétales, douceurs</span>
+              </span>
+            </label>
+            <label class="pack-option">
+              <input type="radio" name="pack" value="evasion">
+              <span class="pack-content">
+                <span class="titre">Évasion</span>
+                <span class="prix">+ 160 €</span>
+                <span class="desc">Tout Luxe + spa &amp; bougies parfumées</span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-block">
+          <h3><span class="form-block-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </span> Vos coordonnées</h3>
+          <div class="form-group">
+            <label for="nom">Nom et prénom *</label>
+            <input type="text" id="nom" name="nom" required placeholder="Jean Dupont">
+          </div>
+          <div class="form-group">
+            <label for="email">Email *</label>
+            <input type="email" id="email" name="email" required placeholder="jean@exemple.fr">
+          </div>
+          <div class="form-group">
+            <label for="tel">Téléphone</label>
+            <input type="tel" id="tel" name="telephone" placeholder="06 12 34 56 78">
+          </div>
+          <div class="form-group">
+            <label for="message">Message ou demande particulière</label>
+            <textarea id="message" name="message" rows="4" placeholder="Heure d'arrivée souhaitée, occasion spéciale…"></textarea>
+          </div>
+        </div>
+
+        <div class="form-block recap-prix" id="recap-prix" style="display: none;">
+          <h3><span class="form-block-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+          </span> Récapitulatif</h3>
+          <p id="recap-dates" class="form-block-intro"></p>
+          <p id="recap-pack" class="form-block-intro"></p>
+          <p id="recap-total"></p>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btn-submit">Payer et réserver</button>
+      </form>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span class="logo-wrap footer-logo">
+        <img src="images/logo.jpeg" alt="Nuit d'Or Loveroom" class="logo-img footer-logo-img">
+        <span class="logo">Nuit d'Or Loveroom</span>
+      </span>
+      <div class="footer-links">
+        <a href="index.html">Accueil</a>
+        <a href="reservation.html">Réservation</a>
+      </div>
+      <p>© Nuit d'Or Loveroom — Conciergerie love room</p>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/fr.js"></script>
+  <script src="js/reservation.js"></script>
+</body>
+</html>

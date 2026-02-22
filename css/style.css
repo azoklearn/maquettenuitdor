@@ -1,0 +1,766 @@
+/* Nuit d'Or Loveroom — Thème noir & blanc, moderne et épuré */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Outfit:wght@300;400;500;600&display=swap');
+
+:root {
+  --noir: #0a0a0a;
+  --noir-doux: #111111;
+  --gris-fonce: #1a1a1a;
+  --gris: #2d2d2d;
+  --gris-clair: #8a8a8a;
+  --blanc: #fafafa;
+  --blanc-cassé: #f0f0f0;
+  --bordure: rgba(255, 255, 255, 0.06);
+  --bordure-hover: rgba(255, 255, 255, 0.12);
+  --accent: rgba(212, 175, 125, 0.5);
+  --transition: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.25);
+  --shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 400;
+  background: var(--noir);
+  color: var(--blanc);
+  line-height: 1.65;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+h1, h2, h3 {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: opacity var(--transition), color var(--transition);
+}
+
+a:hover {
+  opacity: 0.9;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Header */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 1.25rem 2rem;
+  background: rgba(10, 10, 10, 0.9);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--bordure);
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.header:hover {
+  border-bottom-color: var(--bordure-hover);
+}
+
+.header-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: inherit;
+}
+
+.logo-wrap:hover {
+  opacity: 0.9;
+}
+
+.logo-mark {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  color: var(--blanc);
+}
+
+.logo-img {
+  height: 44px;
+  width: auto;
+  max-width: 180px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+.footer-logo-img {
+  height: 36px;
+  opacity: 0.9;
+}
+
+.logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.logo-wrap img.logo-full {
+  height: 42px;
+  width: auto;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 2.25rem;
+}
+
+.nav a {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.nav a[href*="reservation"] {
+  padding: 0.65rem 1.5rem;
+  background: var(--blanc);
+  color: var(--noir);
+  border-radius: 6px;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.nav a[href*="reservation"]:hover {
+  opacity: 1;
+  background: var(--blanc-cassé);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.08);
+}
+
+/* Hero */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 6rem 1.5rem 4rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 100% 80% at 50% 0%, rgba(255, 255, 255, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(212, 175, 125, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.hero-symbol {
+  display: block;
+  margin-bottom: 1.25rem;
+  color: var(--blanc);
+  opacity: 0.5;
+  animation: fadeInUp 0.9s ease-out;
+}
+
+.hero-symbol svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.hero h1 {
+  font-size: clamp(2.75rem, 6.5vw, 4.25rem);
+  line-height: 1.12;
+  margin-bottom: 1.25rem;
+  letter-spacing: 0.02em;
+  position: relative;
+  animation: fadeInUp 0.9s ease-out;
+}
+
+.hero .sous-titre {
+  font-size: 1.125rem;
+  font-weight: 300;
+  color: var(--gris-clair);
+  max-width: 500px;
+  margin: 0 auto 2.5rem;
+  line-height: 1.7;
+  animation: fadeInUp 0.9s ease-out 0.15s both;
+}
+
+.hero .cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.05rem 2.25rem;
+  background: var(--blanc);
+  color: var(--noir);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  transition: transform var(--transition), box-shadow var(--transition);
+  animation: fadeInUp 0.9s ease-out 0.3s both;
+}
+
+.hero .cta:hover {
+  opacity: 1;
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(255, 255, 255, 0.15);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Sections */
+.section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 5.5rem 1.5rem;
+}
+
+.section-title {
+  font-size: clamp(2rem, 4vw, 2.85rem);
+  text-align: center;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+.section-title::after {
+  content: '';
+  display: block;
+  width: 48px;
+  height: 2px;
+  margin: 1.5rem auto 3rem;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  border-radius: 1px;
+}
+
+.section-intro {
+  text-align: center;
+  color: var(--gris-clair);
+  max-width: 520px;
+  margin: 0 auto 2rem;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+/* Cartes avantages */
+.avantages {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.carte {
+  padding: 2.25rem;
+  border: 1px solid var(--bordure);
+  border-radius: 12px;
+  background: var(--noir-doux);
+  transition: border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+}
+
+.carte-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 1.25rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--blanc);
+  opacity: 0.9;
+}
+
+.carte-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.carte:hover .carte-icon {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--blanc);
+}
+
+.carte:hover {
+  border-color: var(--bordure-hover);
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-hover);
+}
+
+.carte h3 {
+  font-size: 1.4rem;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.01em;
+}
+
+.carte p {
+  color: var(--gris-clair);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+/* CTA section */
+.section-cta {
+  text-align: center;
+}
+
+.section-cta .cta {
+  display: inline-flex;
+  padding: 1rem 2rem;
+  background: var(--blanc);
+  color: var(--noir);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.section-cta .cta:hover {
+  opacity: 1;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(255, 255, 255, 0.12);
+}
+
+/* Footer */
+.footer {
+  border-top: 1px solid var(--bordure);
+  padding: 3.5rem 1.5rem 2rem;
+  margin-top: 4rem;
+}
+
+.footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.footer .logo {
+  font-size: 1.2rem;
+}
+
+.footer-links {
+  display: flex;
+  gap: 2rem;
+}
+
+.footer-links a {
+  font-size: 0.9rem;
+  color: var(--gris-clair);
+  transition: color var(--transition);
+}
+
+.footer-links a:hover {
+  color: var(--blanc);
+}
+
+.footer p {
+  font-size: 0.85rem;
+  color: var(--gris-clair);
+}
+
+/* Page Réservation */
+.page-reservation .hero {
+  min-height: 55vh;
+  padding-top: 8rem;
+}
+
+.page-reservation .hero h1 {
+  animation: none;
+}
+
+.page-reservation .hero .sous-titre {
+  animation: none;
+}
+
+.reservation-layout {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+}
+
+.reservation-form {
+  display: grid;
+  gap: 2rem;
+}
+
+.form-block {
+  padding: 2.25rem;
+  border: 1px solid var(--bordure);
+  border-radius: 12px;
+  background: var(--noir-doux);
+  transition: border-color var(--transition);
+}
+
+.form-block:hover {
+  border-color: var(--bordure-hover);
+}
+
+.form-block h3 {
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--bordure);
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-block-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--blanc);
+  opacity: 0.9;
+}
+
+.form-block-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.form-block .form-block-intro {
+  color: var(--gris-clair);
+  font-size: 0.9rem;
+  margin-bottom: 1.25rem;
+  line-height: 1.6;
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--gris-clair);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.9rem 1.1rem;
+  background: var(--noir);
+  border: 1px solid var(--bordure);
+  border-radius: 6px;
+  color: var(--blanc);
+  font-family: inherit;
+  font-size: 1rem;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: var(--gris);
+}
+
+/* Bloc récap prix */
+.recap-prix {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.recap-prix h3 {
+  margin-bottom: 0.25rem;
+}
+
+.recap-prix .form-block-intro {
+  margin-bottom: 0.5rem;
+}
+
+.recap-prix #recap-total {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.4rem !important;
+  letter-spacing: 0.02em;
+  margin-top: 1rem;
+  margin-bottom: 0;
+  color: var(--blanc);
+}
+
+/* Calendrier réservation */
+.block-calendrier .calendrier-reservation {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 0;
+}
+
+.block-calendrier .form-group {
+  margin-bottom: 0;
+}
+
+.block-calendrier input[readonly] {
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .block-calendrier .calendrier-reservation {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Flatpickr — thème noir & blanc */
+.flatpickr-calendar {
+  background: var(--noir-doux) !important;
+  border: 1px solid var(--bordure) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-hover) !important;
+}
+
+.flatpickr-months,
+.flatpickr-weekdays {
+  background: var(--noir-doux) !important;
+}
+
+.flatpickr-current-month .flatpickr-monthDropdown-months,
+.flatpickr-current-month .numInputWrapper input {
+  color: var(--blanc) !important;
+  background: transparent !important;
+}
+
+.flatpickr-weekday {
+  color: var(--gris-clair) !important;
+}
+
+.flatpickr-day {
+  color: var(--blanc) !important;
+}
+
+.flatpickr-day:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: transparent !important;
+}
+
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay {
+  color: var(--gris) !important;
+}
+
+.flatpickr-day.flatpickr-disabled:hover {
+  background: transparent !important;
+  color: var(--gris) !important;
+}
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+  background: var(--blanc) !important;
+  border-color: var(--blanc) !important;
+  color: var(--noir) !important;
+}
+
+.flatpickr-day.today {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.flatpickr-months .flatpickr-prev-month svg,
+.flatpickr-months .flatpickr-next-month svg {
+  fill: var(--blanc) !important;
+}
+
+.flatpickr-months .flatpickr-prev-month:hover svg,
+.flatpickr-months .flatpickr-next-month:hover svg {
+  fill: var(--blanc-cassé) !important;
+}
+
+/* Packs romantiques */
+.packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.pack-option {
+  position: relative;
+  cursor: pointer;
+  border: 1px solid var(--bordure);
+  border-radius: 10px;
+  padding: 1.5rem;
+  background: var(--noir);
+  transition: border-color var(--transition), background var(--transition), transform var(--transition);
+}
+
+.pack-option:hover {
+  border-color: var(--bordure-hover);
+  transform: translateY(-2px);
+}
+
+.pack-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pack-option:has(input:checked) {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.pack-content {
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 0.25rem 0;
+  transition: border-color var(--transition), background var(--transition);
+}
+
+.pack-option .titre {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.2rem;
+  margin-bottom: 0.35rem;
+}
+
+.pack-option .prix {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--blanc);
+}
+
+.pack-option .desc {
+  font-size: 0.85rem;
+  color: var(--gris-clair);
+  margin-top: 0.5rem;
+  line-height: 1.45;
+}
+
+/* Bouton soumettre */
+.btn-submit {
+  width: 100%;
+  padding: 1.15rem 2rem;
+  background: var(--blanc);
+  color: var(--noir);
+  border: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(255, 255, 255, 0.18);
+}
+
+.btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header {
+    padding: 1rem 1.25rem;
+  }
+
+  .nav {
+    gap: 1.25rem;
+  }
+
+  .nav a {
+    font-size: 0.8rem;
+  }
+
+  .hero {
+    padding: 5rem 1rem 3rem;
+  }
+
+  .section {
+    padding: 3.5rem 1rem;
+  }
+
+  .section-title::after {
+    margin-bottom: 2.5rem;
+  }
+
+  .footer-inner {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .packs {
+    grid-template-columns: 1fr;
+  }
+
+  .form-block {
+    padding: 1.5rem;
+  }
+}
+
+/* Utilitaires */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
