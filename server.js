@@ -19,10 +19,17 @@ const PACK_PRICES = {
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
-db.initDb();
+try {
+  db.initDb();
+} catch (e) {
+  console.error('DB init error:', e.message);
+}
 
-// Fichiers statiques (site)
-app.use(express.static(path.join(__dirname)));
+// Fichiers statiques (en local uniquement ; sur Vercel, public/ est servi par le CDN)
+if (!process.env.VERCEL) {
+  app.use(express.static(path.join(__dirname, 'public')));
+  app.use(express.static(path.join(__dirname)));
+}
 
 // Webhook Stripe : body brut pour signature
 app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }), (req, res) => {
@@ -158,9 +165,13 @@ app.post('/api/create-reservation', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log('Nuit d\'Or — serveur sur http://localhost:' + PORT);
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.warn('STRIPE_SECRET_KEY manquant : le paiement ne fonctionnera pas.');
-  }
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log('Nuit d\'Or — serveur sur http://localhost:' + PORT);
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.warn('STRIPE_SECRET_KEY manquant : le paiement ne fonctionnera pas.');
+    }
+  });
+}
+
+module.exports = app;

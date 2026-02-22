@@ -32,17 +32,24 @@ Pour afficher votre logo à la place du texte « Nuit d'Or Loveroom » :
 
 En production : définir BASE_URL et le webhook Stripe (STRIPE_WEBHOOK_SECRET). Tarifs dans .env.
 
+## Déploiement sur Vercel
+
+- Les fichiers statiques (HTML, CSS, JS, images) sont dans **`public/`** ; Vercel les sert via le CDN.
+- L’app Express (`server.js`) est exportée et sert uniquement les routes **`/api/*`**.
+- En projet Vercel, définir les variables d’environnement : `STRIPE_SECRET_KEY`, `BASE_URL` (ex. `https://ton-projet.vercel.app`), `RESEND_API_KEY`, `NOTIFY_EMAIL`, et en production le webhook Stripe avec `STRIPE_WEBHOOK_SECRET`.
+- **SQLite** : sur Vercel la base est en **`/tmp`** (éphémère). Les réservations ne sont pas persistées entre déploiements / cold starts. Pour une vraie persistance, utiliser plus tard une base type Vercel Postgres ou Turso.
+
 ## Structure des fichiers
 
 ```
 nuitdor/
-├── index.html          # Page d'accueil
-├── reservation.html    # Réservation (formulaire + Stripe)
-├── css/style.css       # Styles
-├── js/reservation.js   # Calendrier, API
-├── server.js           # Express (API + statiques)
-├── server/db.js        # SQLite
-├── data/               # Base (créée au lancement)
-├── images/             # (à créer) Logo
+├── public/             # Fichiers statiques (servis par Vercel CDN)
+│   ├── index.html
+│   ├── reservation.html
+│   ├── css/, js/, images/
+├── server.js           # Express (API uniquement en prod)
+├── server/db.js, server/mail.js
+├── data/               # Base SQLite (local)
+├── vercel.json
 └── README.md
 ```
