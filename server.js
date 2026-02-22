@@ -48,7 +48,17 @@ app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }), (req, 
     const bookingId = session.metadata && session.metadata.booking_id;
     if (bookingId) {
       db.setBookingPaid(Number(bookingId), session.id);
-      const booking = db.getBookingById(Number(bookingId));
+      let booking = db.getBookingById(Number(bookingId));
+      if (!booking && session.metadata && session.metadata.email) {
+        booking = {
+          email: session.metadata.email,
+          nom: session.metadata.nom || '',
+          date_arrivee: session.metadata.date_arrivee || '',
+          date_depart: session.metadata.date_depart || '',
+          pack: session.metadata.pack || 'aucun',
+          amount_cents: Number(session.metadata.amount_cents) || session.amount_total || 0
+        };
+      }
       if (booking) {
         mail.sendConfirmationEmail(booking).catch((err) => console.error('Email confirmation:', err));
       }
@@ -73,14 +83,24 @@ app.get('/api/confirm-session', async (req, res) => {
     }
     const bookingId = session.metadata && session.metadata.booking_id;
     if (!bookingId) return res.status(400).json({ error: 'Réservation introuvable' });
-    const booking = db.getBookingById(Number(bookingId));
+    let booking = db.getBookingById(Number(bookingId));
+    if (!booking && session.metadata && session.metadata.email) {
+      booking = {
+        email: session.metadata.email,
+        nom: session.metadata.nom || '',
+        date_arrivee: session.metadata.date_arrivee || '',
+        date_depart: session.metadata.date_depart || '',
+        pack: session.metadata.pack || 'aucun',
+        amount_cents: Number(session.metadata.amount_cents) || session.amount_total || 0
+      };
+    }
     if (!booking) return res.status(404).json({ error: 'Réservation introuvable' });
     if (booking.status === 'paid') {
       return res.json({ ok: true, already: true });
     }
     db.setBookingPaid(Number(bookingId), sessionId);
-    const updated = db.getBookingById(Number(bookingId));
-    if (updated) mail.sendConfirmationEmail(updated).catch((e) => console.error('Email:', e));
+    const updated = db.getBookingById(Number(bookingId)) || booking;
+    mail.sendConfirmationEmail(updated).catch((e) => console.error('Email:', e));
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
@@ -154,7 +174,15 @@ app.post('/api/create-reservation', async (req, res) => {
       success_url: `${BASE_URL}/reservation.html?success=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${BASE_URL}/reservation.html?cancel=1`,
       customer_email: email,
-      metadata: { booking_id: String(bookingId) }
+      metadata: {
+        booking_id: String(bookingId),
+        email,
+        nom,
+        date_arrivee,
+        date_depart,
+        pack: packKey,
+        amount_cents: String(amountCents)
+      }
     });
 
     res.json({ url: session.url, booking_id: bookingId });

@@ -1,3 +1,8 @@
+if (process.env.VERCEL) {
+  module.exports = require('./db-vercel');
+  return;
+}
+
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
