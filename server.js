@@ -25,9 +25,9 @@ try {
   console.error('DB init error:', e.message);
 }
 
-// Fichiers statiques (en local uniquement ; sur Vercel, public/ est servi par le CDN)
+// Fichiers statiques : public/ (toujours, pour que GET / fonctionne sur Vercel)
+app.use(express.static(path.join(__dirname, 'public')));
 if (!process.env.VERCEL) {
-  app.use(express.static(path.join(__dirname, 'public')));
   app.use(express.static(path.join(__dirname)));
 }
 
