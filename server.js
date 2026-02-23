@@ -49,7 +49,10 @@ function computeOptionsEuros(optionKeys) {
   return optionKeys.reduce((sum, key) => sum + (OPTION_PRICES[key] || 0), 0);
 }
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+// En production (Vercel), utiliser BASE_URL ou l’URL du déploiement pour que Stripe redirige au bon endroit
+const BASE_URL = process.env.BASE_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+  'http://localhost:3000';
 
 try {
   db.initDb();
