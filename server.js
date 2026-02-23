@@ -14,7 +14,7 @@ const PACK_PRICES = {
   champagne: 45,
   romance: 75,
   luxe: 120,
-  evasion: 160
+  evasion: 80
 };
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';

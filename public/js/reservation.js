@@ -72,8 +72,8 @@
     });
   }
 
-  var PACK_LABELS = { aucun: 'Sans pack', champagne: 'Champagne', romance: 'Romance', luxe: 'Luxe', evasion: 'Évasion' };
-  var PACK_PRICES = { aucun: 0, champagne: 45, romance: 75, luxe: 120, evasion: 160 };
+  var PACK_LABELS = { aucun: 'Sans pack', champagne: 'Champagne', romance: 'Romance', luxe: 'Luxe', evasion: 'Formule 80' };
+  var PACK_PRICES = { aucun: 0, champagne: 45, romance: 75, luxe: 120, evasion: 80 };
   var BASE_PRICE = 150;
 
   function updateRecap() {
