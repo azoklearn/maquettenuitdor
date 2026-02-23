@@ -31,7 +31,14 @@
 
   function disableDatesForFlatpickr(dates) {
     if (!dates || !dates.length) return [];
-    return dates.map(function (d) { return d; });
+    return dates.map(function (d) {
+      var s = String(d).trim().slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        var parts = s.split('-');
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      }
+      return d;
+    });
   }
 
   function initCalendars(disabledDates) {
@@ -39,7 +46,7 @@
     today.setHours(0, 0, 0, 0);
 
     var disableRule = disabledDates && disabledDates.length
-      ? disabledDates
+      ? disableDatesForFlatpickr(disabledDates)
       : [];
 
     fpArrivee = flatpickr(inputArrivee, {
