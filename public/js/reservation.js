@@ -269,6 +269,7 @@
         try {
           var r = JSON.parse(xhr.responseText);
           if (r.error) errMsg = r.error;
+          if (r.detail) errMsg += '\n\nDétail : ' + r.detail;
         } catch (e) {}
         alert(errMsg);
       };

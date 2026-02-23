@@ -221,8 +221,12 @@ app.post('/api/create-reservation', async (req, res) => {
 
     res.json({ url: session.url, booking_id: bookingId });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Erreur lors de la création de la réservation' });
+    console.error('Create reservation error:', err);
+    const message = err.message || 'Erreur inconnue';
+    res.status(500).json({
+      error: 'Erreur lors de la création de la réservation',
+      detail: process.env.NODE_ENV !== 'production' ? message : undefined
+    });
   }
 });
 
