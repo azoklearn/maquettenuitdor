@@ -991,3 +991,243 @@ img {
   clip: rect(0, 0, 0, 0);
   border: 0;
 }
+
+/* Admin */
+.page-admin .admin-main {
+  padding-top: 6rem;
+  min-height: 100vh;
+}
+
+.admin-section {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.admin-login-intro {
+  color: var(--gris-clair);
+  margin-bottom: 1.5rem;
+}
+
+.admin-form .form-group {
+  margin-bottom: 1rem;
+}
+
+.admin-form .form-group label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--gris-clair);
+}
+
+.admin-form input[type="password"] {
+  width: 100%;
+  max-width: 280px;
+  padding: 0.65rem 0.9rem;
+  background: var(--noir-doux);
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  color: var(--blanc);
+  font-size: 1rem;
+}
+
+.admin-form .btn-submit {
+  margin-top: 0.5rem;
+}
+
+.admin-error {
+  color: #e57373;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+}
+
+.admin-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-panel-head h2 {
+  font-size: 1.35rem;
+  margin: 0;
+}
+
+.admin-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+.admin-btn-outline {
+  background: transparent;
+  color: var(--gris-clair);
+  border: 1px solid var(--bordure);
+}
+
+.admin-btn-outline:hover {
+  border-color: var(--bordure-hover);
+  color: var(--blanc);
+}
+
+.admin-btn-danger {
+  background: rgba(180, 70, 70, 0.25);
+  color: #e57373;
+}
+
+.admin-btn-danger:hover {
+  background: rgba(180, 70, 70, 0.4);
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--bordure);
+  border-radius: 10px;
+  background: var(--noir-doux);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--bordure);
+}
+
+.admin-table th {
+  color: var(--gris-clair);
+  font-weight: 500;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.admin-table small {
+  color: var(--gris-clair);
+  font-size: 0.85em;
+}
+
+.admin-status {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.admin-status-paid {
+  background: rgba(76, 175, 80, 0.2);
+  color: #81c784;
+}
+
+.admin-status-pending {
+  background: rgba(255, 193, 7, 0.15);
+  color: #ffb74d;
+}
+
+.admin-empty {
+  color: var(--gris-clair);
+}
+
+.admin-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--blanc);
+  font-size: 0.9rem;
+}
+
+.admin-message-error {
+  background: rgba(180, 70, 70, 0.15);
+  color: #e57373;
+}
+
+.admin-blocked-section {
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--bordure);
+}
+
+.admin-blocked-section h2 {
+  font-size: 1.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.admin-blocked-intro {
+  color: var(--gris-clair);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.admin-form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-form-inline .form-group {
+  margin-bottom: 0;
+}
+
+.admin-form-inline input[type="date"] {
+  padding: 0.5rem 0.75rem;
+  background: var(--noir-doux);
+  border: 1px solid var(--bordure);
+  border-radius: 8px;
+  color: var(--blanc);
+  font-size: 1rem;
+}
+
+.admin-btn-primary {
+  background: var(--accent);
+  color: var(--noir);
+  font-weight: 500;
+}
+
+.admin-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.admin-btn-sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+}
+
+.admin-blocked-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-blocked-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--bordure);
+  font-size: 0.95rem;
+}
+
+.admin-blocked-list li:last-child {
+  border-bottom: none;
+}

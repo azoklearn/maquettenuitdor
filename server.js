@@ -150,11 +150,93 @@ app.get('/api/confirm-session', async (req, res) => {
   }
 });
 
-// Créneaux déjà réservés (dates à désactiver dans le calendrier)
+// Créneaux déjà réservés + dates bloquées (à désactiver dans le calendrier)
 app.get('/api/booked-dates', (req, res) => {
   try {
-    const dates = db.getBookedDates();
+    const fromBookings = db.getBookedDates();
+    const fromBlocked = db.getBlockedDates ? db.getBlockedDates() : [];
+    const dates = [...new Set([...fromBookings, ...fromBlocked])];
     res.json({ dates });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// ——— Admin : liste et suppression de réservations (créneaux)
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+
+function requireAdmin(req, res, next) {
+  if (!ADMIN_PASSWORD) {
+    return res.status(503).json({ error: 'Admin non configuré (ADMIN_PASSWORD)' });
+  }
+  const token = req.headers['x-admin-password'] || req.body?.adminPassword || req.query?.adminPassword;
+  if (token !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Accès refusé' });
+  }
+  next();
+}
+
+app.get('/api/admin/bookings', requireAdmin, (req, res) => {
+  try {
+    const bookings = db.getAllBookings();
+    res.json({ bookings });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.delete('/api/admin/bookings/:id', requireAdmin, (req, res) => {
+  const id = Number(req.params.id);
+  if (!id) return res.status(400).json({ error: 'ID invalide' });
+  try {
+    const deleted = db.deleteBooking(id);
+    if (!deleted) return res.status(404).json({ error: 'Réservation introuvable' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Admin : dates bloquées (indisponibles au calendrier)
+app.get('/api/admin/blocked-dates', requireAdmin, (req, res) => {
+  try {
+    const dates = db.getBlockedDates ? db.getBlockedDates() : [];
+    res.json({ dates });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/admin/blocked-dates', requireAdmin, (req, res) => {
+  const date = req.body && req.body.date;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date).slice(0, 10))) {
+    return res.status(400).json({ error: 'Date invalide (format YYYY-MM-DD)' });
+  }
+  const normalized = String(date).slice(0, 10);
+  try {
+    const added = db.addBlockedDate(normalized);
+    if (!added) return res.status(409).json({ error: 'Date déjà bloquée' });
+    res.json({ ok: true, date: normalized });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.delete('/api/admin/blocked-dates/:date', requireAdmin, (req, res) => {
+  const date = req.params.date;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date).slice(0, 10))) {
+    return res.status(400).json({ error: 'Date invalide' });
+  }
+  const normalized = String(date).slice(0, 10);
+  try {
+    const removed = db.removeBlockedDate(normalized);
+    if (!removed) return res.status(404).json({ error: 'Date non bloquée' });
+    res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur' });

@@ -4,6 +4,7 @@
  */
 
 const bookings = [];
+const blockedDates = [];
 let nextId = 1;
 
 function getDb() {
@@ -58,10 +59,59 @@ function getBookingById(id) {
   return bookings.find((x) => x.id === Number(id)) || null;
 }
 
+function getBlockedDates() {
+  return blockedDates.slice().sort();
+}
+
+function addBlockedDate(date) {
+  const d = String(date).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  if (blockedDates.includes(d)) return false;
+  blockedDates.push(d);
+  return true;
+}
+
+function removeBlockedDate(date) {
+  const d = String(date).slice(0, 10);
+  const i = blockedDates.indexOf(d);
+  if (i === -1) return false;
+  blockedDates.splice(i, 1);
+  return true;
+}
+
+function getAllBookings() {
+  return bookings
+    .map((b) => ({
+      id: b.id,
+      date_arrivee: b.date_arrivee,
+      date_depart: b.date_depart,
+      pack: b.pack,
+      nom: b.nom,
+      email: b.email,
+      telephone: b.telephone,
+      amount_cents: b.amount_cents,
+      status: b.status,
+      created_at: b.created_at
+    }))
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+function deleteBooking(id) {
+  const i = bookings.findIndex((x) => x.id === Number(id));
+  if (i === -1) return false;
+  bookings.splice(i, 1);
+  return true;
+}
+
 module.exports = {
   initDb,
   getBookedDates,
+  getBlockedDates,
+  addBlockedDate,
+  removeBlockedDate,
   createBooking,
   setBookingPaid,
-  getBookingById
+  getBookingById,
+  getAllBookings,
+  deleteBooking
 };

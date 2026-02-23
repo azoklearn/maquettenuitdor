@@ -44,6 +44,11 @@ function initDb() {
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS blocked_dates (
+      date TEXT PRIMARY KEY
+    )
+  `);
   db.close();
 }
 
@@ -65,6 +70,35 @@ function getBookedDates() {
     }
   }
   return Array.from(dates);
+}
+
+function getBlockedDates() {
+  const db = getDb();
+  const rows = db.prepare('SELECT date FROM blocked_dates ORDER BY date').all();
+  db.close();
+  return rows.map((r) => r.date);
+}
+
+function addBlockedDate(date) {
+  const d = String(date).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+  const db = getDb();
+  try {
+    db.prepare('INSERT INTO blocked_dates (date) VALUES (?)').run(d);
+    db.close();
+    return true;
+  } catch (e) {
+    db.close();
+    return false;
+  }
+}
+
+function removeBlockedDate(date) {
+  const d = String(date).slice(0, 10);
+  const db = getDb();
+  const info = db.prepare('DELETE FROM blocked_dates WHERE date = ?').run(d);
+  db.close();
+  return info.changes > 0;
 }
 
 function createBooking(data) {
@@ -102,10 +136,33 @@ function getBookingById(id) {
   return row;
 }
 
+function getAllBookings() {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT id, date_arrivee, date_depart, pack, nom, email, telephone, amount_cents, status, created_at
+    FROM bookings
+    ORDER BY created_at DESC
+  `).all();
+  db.close();
+  return rows;
+}
+
+function deleteBooking(id) {
+  const db = getDb();
+  const info = db.prepare('DELETE FROM bookings WHERE id = ?').run(id);
+  db.close();
+  return info.changes > 0;
+}
+
 module.exports = {
   initDb,
   getBookedDates,
+  getBlockedDates,
+  addBlockedDate,
+  removeBlockedDate,
   createBooking,
   setBookingPaid,
-  getBookingById
+  getBookingById,
+  getAllBookings,
+  deleteBooking
 };

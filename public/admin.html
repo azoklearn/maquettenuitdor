@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin — Nuit d'Or Loveroom</title>
+  <link rel="icon" type="image/svg+xml" href="images/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="page-admin">
+  <header class="header">
+    <div class="header-inner">
+      <a href="index.html" class="logo-wrap" aria-label="Retour accueil">
+        <img src="images/logo.jpeg" alt="Nuit d'Or Loveroom" class="logo-img">
+        <span class="logo">Nuit d'Or Loveroom</span>
+      </a>
+      <div class="header-right">
+        <a href="index.html">Retour au site</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="section admin-section">
+      <h1 class="section-title">Administration</h1>
+
+      <div id="admin-login" class="admin-login">
+        <p class="admin-login-intro">Entrez le mot de passe admin pour gérer les réservations.</p>
+        <form id="form-login" class="admin-form">
+          <div class="form-group">
+            <label for="admin-password">Mot de passe</label>
+            <input type="password" id="admin-password" name="password" required placeholder="Mot de passe admin" autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn-submit">Accéder</button>
+        </form>
+        <p id="admin-login-error" class="admin-error" style="display: none;"></p>
+      </div>
+
+      <div id="admin-panel" class="admin-panel" style="display: none;">
+        <div class="admin-panel-head">
+          <h2>Réservations (créneaux)</h2>
+          <button type="button" id="admin-logout" class="admin-btn admin-btn-outline">Déconnexion</button>
+        </div>
+        <p id="admin-empty" class="admin-empty" style="display: none;">Aucune réservation.</p>
+        <div id="admin-table-wrap" class="admin-table-wrap" style="display: none;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Dates</th>
+                <th>Client</th>
+                <th>Total</th>
+                <th>Statut</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="admin-tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="admin-blocked-section">
+          <h2>Dates bloquées (indisponibles au calendrier)</h2>
+          <p class="admin-blocked-intro">Bloquez des dates pour qu’elles n’apparaissent plus comme réservables.</p>
+          <form id="form-blocked" class="admin-form admin-form-inline">
+            <div class="form-group">
+              <label for="blocked-date">Date à bloquer</label>
+              <input type="date" id="blocked-date" name="date" required min="">
+            </div>
+            <button type="submit" class="admin-btn admin-btn-primary">Bloquer cette date</button>
+          </form>
+          <p id="blocked-empty" class="admin-empty" style="display: none;">Aucune date bloquée.</p>
+          <ul id="blocked-list" class="admin-blocked-list"></ul>
+        </div>
+
+        <p id="admin-message" class="admin-message" style="display: none;"></p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+(function () {
+  'use strict';
+  var API_BASE = '';
+  var STORAGE_KEY = 'nuitdor_admin';
+
+  function getPassword() {
+    try {
+      return sessionStorage.getItem(STORAGE_KEY) || '';
+    } catch (e) {
+      return '';
+    }
+  }
+  function setPassword(pwd) {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, pwd);
+    } catch (e) {}
+  }
+  function clearPassword() {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch (e) {}
+  }
+
+  var loginBlock = document.getElementById('admin-login');
+  var panelBlock = document.getElementById('admin-panel');
+  var loginError = document.getElementById('admin-login-error');
+  var formLogin = document.getElementById('form-login');
+  var adminPasswordInput = document.getElementById('admin-password');
+  var tbody = document.getElementById('admin-tbody');
+  var tableWrap = document.getElementById('admin-table-wrap');
+  var emptyMsg = document.getElementById('admin-empty');
+  var messageEl = document.getElementById('admin-message');
+  var logoutBtn = document.getElementById('admin-logout');
+
+  function showMessage(text, isError) {
+    messageEl.textContent = text;
+    messageEl.style.display = 'block';
+    messageEl.className = 'admin-message' + (isError ? ' admin-message-error' : '');
+    setTimeout(function () {
+      messageEl.style.display = 'none';
+    }, 4000);
+  }
+
+  function loadBookings() {
+    var pwd = getPassword();
+    if (!pwd) {
+      loginBlock.style.display = 'block';
+      panelBlock.style.display = 'none';
+      return;
+    }
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', API_BASE + '/api/admin/bookings', true);
+    xhr.setRequestHeader('X-Admin-Password', pwd);
+    xhr.onload = function () {
+      if (xhr.status === 401) {
+        clearPassword();
+        loginBlock.style.display = 'block';
+        panelBlock.style.display = 'none';
+        loginError.textContent = 'Mot de passe incorrect.';
+        loginError.style.display = 'block';
+        return;
+      }
+      if (xhr.status !== 200) {
+        loginBlock.style.display = 'block';
+        panelBlock.style.display = 'none';
+        loginError.textContent = 'Erreur serveur.';
+        loginError.style.display = 'block';
+        return;
+      }
+      loginBlock.style.display = 'none';
+      panelBlock.style.display = 'block';
+      loginError.style.display = 'none';
+      var data = JSON.parse(xhr.responseText);
+      var bookings = data.bookings || [];
+      if (bookings.length === 0) {
+        tableWrap.style.display = 'none';
+        emptyMsg.style.display = 'block';
+      } else {
+        emptyMsg.style.display = 'none';
+        tableWrap.style.display = 'block';
+        tbody.innerHTML = '';
+        bookings.forEach(function (b) {
+        var tr = document.createElement('tr');
+        var datesStr = (b.date_arrivee || '') + ' → ' + (b.date_depart || '');
+        var totalEuros = b.amount_cents != null ? (b.amount_cents / 100).toFixed(2) + ' €' : '—';
+        tr.innerHTML =
+          '<td>' + escapeHtml(datesStr) + '</td>' +
+          '<td><strong>' + escapeHtml(b.nom || '') + '</strong><br><small>' + escapeHtml(b.email || '') + '</small></td>' +
+          '<td>' + totalEuros + '</td>' +
+          '<td><span class="admin-status admin-status-' + (b.status || 'pending') + '">' + escapeHtml(b.status === 'paid' ? 'Payé' : 'En attente') + '</span></td>' +
+          '<td><button type="button" class="admin-btn admin-btn-danger" data-id="' + b.id + '">Supprimer</button></td>';
+        tbody.appendChild(tr);
+        tr.querySelector('.admin-btn-danger').addEventListener('click', function () {
+          if (!confirm('Supprimer cette réservation ? Les dates seront à nouveau disponibles.')) return;
+          deleteBooking(b.id, tr);
+        });
+      });
+      }
+      loadBlockedDates();
+    };
+    xhr.onerror = function () {
+      loginBlock.style.display = 'block';
+      panelBlock.style.display = 'none';
+      loginError.textContent = 'Erreur de connexion.';
+      loginError.style.display = 'block';
+    };
+    xhr.send();
+  }
+
+  function escapeHtml(s) {
+    var div = document.createElement('div');
+    div.textContent = s;
+    return div.innerHTML;
+  }
+
+  function deleteBooking(id, rowEl) {
+    var pwd = getPassword();
+    var xhr = new XMLHttpRequest();
+    xhr.open('DELETE', API_BASE + '/api/admin/bookings/' + id, true);
+    xhr.setRequestHeader('X-Admin-Password', pwd);
+    xhr.onload = function () {
+      if (xhr.status === 401) {
+        clearPassword();
+        loadBookings();
+        return;
+      }
+      if (xhr.status === 200) {
+        rowEl.remove();
+        showMessage('Créneau supprimé. Les dates sont à nouveau disponibles.', false);
+        var rows = tbody.querySelectorAll('tr');
+        if (rows.length === 0) {
+          tableWrap.style.display = 'none';
+          emptyMsg.style.display = 'block';
+        }
+      } else {
+        showMessage('Erreur lors de la suppression.', true);
+      }
+    };
+    xhr.onerror = function () {
+      showMessage('Erreur de connexion.', true);
+    };
+    xhr.send();
+  }
+
+  formLogin.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var pwd = (adminPasswordInput.value || '').trim();
+    if (!pwd) return;
+    setPassword(pwd);
+    loginError.style.display = 'none';
+    loadBookings();
+  });
+
+  var blockedList = document.getElementById('blocked-list');
+  var blockedEmpty = document.getElementById('blocked-empty');
+  var formBlocked = document.getElementById('form-blocked');
+  var blockedDateInput = document.getElementById('blocked-date');
+
+  function loadBlockedDates() {
+    var pwd = getPassword();
+    if (!pwd || !blockedList) return;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', API_BASE + '/api/admin/blocked-dates', true);
+    xhr.setRequestHeader('X-Admin-Password', pwd);
+    xhr.onload = function () {
+      if (xhr.status !== 200) return;
+      var data = JSON.parse(xhr.responseText);
+      var dates = data.dates || [];
+      blockedList.innerHTML = '';
+      if (dates.length === 0) {
+        blockedEmpty.style.display = 'block';
+        blockedList.style.display = 'none';
+      } else {
+        blockedEmpty.style.display = 'none';
+        blockedList.style.display = 'block';
+        dates.forEach(function (d) {
+          var li = document.createElement('li');
+          var label = formatDateFr(d);
+          li.innerHTML = '<span>' + escapeHtml(label) + '</span> <button type="button" class="admin-btn admin-btn-danger admin-btn-sm" data-date="' + escapeHtml(d) + '">Supprimer</button>';
+          blockedList.appendChild(li);
+          li.querySelector('button').addEventListener('click', function () {
+            removeBlockedDate(d, li);
+          });
+        });
+      }
+    };
+    xhr.send();
+  }
+
+  function formatDateFr(iso) {
+    var parts = String(iso).slice(0, 10).split('-');
+    if (parts.length !== 3) return iso;
+    var d = new Date(parts[0], parts[1] - 1, parts[2]);
+    return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  function removeBlockedDate(date, liEl) {
+    var pwd = getPassword();
+    var xhr = new XMLHttpRequest();
+    xhr.open('DELETE', API_BASE + '/api/admin/blocked-dates/' + encodeURIComponent(date), true);
+    xhr.setRequestHeader('X-Admin-Password', pwd);
+    xhr.onload = function () {
+      if (xhr.status === 200 && liEl && liEl.parentNode) {
+        liEl.remove();
+        showMessage('Date libérée. Elle est à nouveau réservable.', false);
+        if (blockedList && blockedList.children.length === 0) {
+          blockedEmpty.style.display = 'block';
+          blockedList.style.display = 'none';
+        }
+      } else {
+        showMessage('Erreur lors de la suppression.', true);
+      }
+    };
+    xhr.send();
+  }
+
+  if (blockedDateInput) {
+    var today = new Date().toISOString().slice(0, 10);
+    blockedDateInput.setAttribute('min', today);
+  }
+  if (formBlocked && blockedDateInput) {
+    formBlocked.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var date = blockedDateInput.value;
+      if (!date) return;
+      var pwd = getPassword();
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', API_BASE + '/api/admin/blocked-dates', true);
+      xhr.setRequestHeader('X-Admin-Password', pwd);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.onload = function () {
+        if (xhr.status === 200) {
+          blockedDateInput.value = '';
+          loadBlockedDates();
+          showMessage('Date bloquée. Elle n’est plus réservable.', false);
+        } else {
+          var err = 'Erreur.';
+          try {
+            var r = JSON.parse(xhr.responseText);
+            if (r.error) err = r.error;
+          } catch (e) {}
+          showMessage(err, true);
+        }
+      };
+      xhr.send(JSON.stringify({ date: date }));
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', function () {
+      clearPassword();
+      adminPasswordInput.value = '';
+      loginBlock.style.display = 'block';
+      panelBlock.style.display = 'none';
+    });
+  }
+
+  if (getPassword()) {
+    loadBookings();
+  }
+})();
+  </script>
+</body>
+</html>
