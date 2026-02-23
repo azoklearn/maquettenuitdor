@@ -8,14 +8,46 @@ const mail = require('./server/mail');
 const app = express();
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
-const BASE_PRICE_PER_NIGHT = Number(process.env.BASE_PRICE_PER_NIGHT) || 150;
-const PACK_PRICES = {
-  aucun: 0,
-  champagne: 45,
-  romance: 75,
-  luxe: 120,
-  evasion: 80
+const WEEK_PRICE = 155;      // nuit en semaine (lundi-jeudi, + dimanche)
+const WEEKEND_PRICE = 205;   // nuit de week-end (vendredi-samedi)
+
+const OPTION_PRICES = {
+  petales: 30,
+  bouquet: 50,
+  champagne: 50,
+  formule80: 80,
+  arrivee15: 40,
+  depart14: 40
 };
+
+function getNightPrice(date) {
+  const day = date.getDay(); // 0=dimanche, 1=lundi, ..., 6=samedi
+  if (day === 5 || day === 6) return WEEKEND_PRICE; // ven/sam
+  return WEEK_PRICE;
+}
+
+function computeBaseAmountEuros(dateArrivee, dateDepart) {
+  const start = new Date(dateArrivee);
+  const end = new Date(dateDepart);
+  if (isNaN(start) || isNaN(end)) return { nights: 0, base: 0 };
+  let nights = 0;
+  let total = 0;
+  const cursor = new Date(start.getTime());
+  cursor.setHours(0, 0, 0, 0);
+  const limit = new Date(end.getTime());
+  limit.setHours(0, 0, 0, 0);
+  while (cursor < limit) {
+    total += getNightPrice(cursor);
+    nights += 1;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return { nights, base: total };
+}
+
+function computeOptionsEuros(optionKeys) {
+  if (!Array.isArray(optionKeys)) return 0;
+  return optionKeys.reduce((sum, key) => sum + (OPTION_PRICES[key] || 0), 0);
+}
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
@@ -55,7 +87,7 @@ app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }), (req, 
           nom: session.metadata.nom || '',
           date_arrivee: session.metadata.date_arrivee || '',
           date_depart: session.metadata.date_depart || '',
-          pack: session.metadata.pack || 'aucun',
+          pack: session.metadata.options || '',
           amount_cents: Number(session.metadata.amount_cents) || session.amount_total || 0
         };
       }
@@ -90,7 +122,7 @@ app.get('/api/confirm-session', async (req, res) => {
         nom: session.metadata.nom || '',
         date_arrivee: session.metadata.date_arrivee || '',
         date_depart: session.metadata.date_depart || '',
-        pack: session.metadata.pack || 'aucun',
+        pack: session.metadata.options || '',
         amount_cents: Number(session.metadata.amount_cents) || session.amount_total || 0
       };
     }
@@ -121,16 +153,18 @@ app.get('/api/booked-dates', (req, res) => {
 
 // Créer une réservation et obtenir l’URL de paiement Stripe
 app.post('/api/create-reservation', async (req, res) => {
-  const { date_arrivee, date_depart, pack, nom, email, telephone, message } = req.body || {};
+  const { date_arrivee, date_depart, options, nom, email, telephone, message } = req.body || {};
   if (!date_arrivee || !date_depart || !nom || !email) {
     return res.status(400).json({ error: 'Champs obligatoires manquants' });
   }
 
-  const packKey = (pack && PACK_PRICES.hasOwnProperty(pack)) ? pack : 'aucun';
-  const start = new Date(date_arrivee);
-  const end = new Date(date_depart);
-  const nights = Math.max(0, Math.ceil((end - start) / (24 * 60 * 60 * 1000)));
-  const amountEuros = nights * BASE_PRICE_PER_NIGHT + (PACK_PRICES[packKey] || 0);
+  const optionKeys = Array.isArray(options) ? options : [];
+  const baseInfo = computeBaseAmountEuros(date_arrivee, date_depart);
+  const optionsEuros = computeOptionsEuros(optionKeys);
+  let amountEuros = baseInfo.base + optionsEuros;
+  if (baseInfo.nights >= 2) {
+    amountEuros = amountEuros * 0.85; // remise 15 % dès 2 nuits
+  }
   const amountCents = Math.round(amountEuros * 100);
 
   if (amountCents < 100) {
@@ -141,7 +175,7 @@ app.post('/api/create-reservation', async (req, res) => {
     const bookingId = db.createBooking({
       date_arrivee,
       date_depart,
-      pack: packKey,
+      pack: optionKeys.join(','),
       nom,
       email,
       telephone: telephone || null,
@@ -166,7 +200,7 @@ app.post('/api/create-reservation', async (req, res) => {
           unit_amount: amountCents,
           product_data: {
             name: 'Réservation Love Room — Nuit d\'Or',
-            description: `Séjour du ${date_arrivee} au ${date_depart}${packKey !== 'aucun' ? ` — Pack ${packKey}` : ''}`
+            description: `Séjour du ${date_arrivee} au ${date_depart}` + (optionKeys.length ? ` — Options: ${optionKeys.join(', ')}` : '')
           }
         },
         quantity: 1
@@ -180,7 +214,7 @@ app.post('/api/create-reservation', async (req, res) => {
         nom,
         date_arrivee,
         date_depart,
-        pack: packKey,
+        options: optionKeys.join(','),
         amount_cents: String(amountCents)
       }
     });

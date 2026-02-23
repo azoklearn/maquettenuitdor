@@ -72,9 +72,57 @@
     });
   }
 
-  var PACK_LABELS = { aucun: 'Sans pack', champagne: 'Champagne', romance: 'Romance', luxe: 'Luxe', evasion: 'Formule 80' };
-  var PACK_PRICES = { aucun: 0, champagne: 45, romance: 75, luxe: 120, evasion: 80 };
-  var BASE_PRICE = 150;
+  function getNightPrice(date) {
+    // 0 = dimanche, 1 = lundi, ..., 6 = samedi
+    var day = date.getDay();
+    // Vendredi (5) et samedi (6) = week-end
+    if (day === 5 || day === 6) return 205;
+    // Dimanche traité comme semaine par défaut
+    return 155;
+  }
+
+  function computeBaseAmount(d1, d2) {
+    var nights = 0;
+    var total = 0;
+    var cursor = new Date(d1.getTime());
+    cursor.setHours(0, 0, 0, 0);
+    var end = new Date(d2.getTime());
+    end.setHours(0, 0, 0, 0);
+    while (cursor < end) {
+      total += getNightPrice(cursor);
+      nights += 1;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return { nights: nights, base: total };
+  }
+
+  var OPTION_LABELS = {
+    petales: 'Pétales de roses',
+    bouquet: 'Bouquet personnalisé',
+    champagne: 'Champagne',
+    formule80: 'Formule 80',
+    arrivee15: 'Arrivée anticipée (15h)',
+    depart14: 'Départ tardif (14h)'
+  };
+
+  var OPTION_PRICES = {
+    petales: 30,
+    bouquet: 50,
+    champagne: 50,
+    formule80: 80,
+    arrivee15: 40,
+    depart14: 40
+  };
+
+  function getSelectedOptionKeys() {
+    if (!form) return [];
+    var inputs = form.querySelectorAll('.option-input');
+    var keys = [];
+    inputs.forEach(function (input) {
+      if (input.checked) keys.push(input.value);
+    });
+    return keys;
+  }
 
   function updateRecap() {
     if (!recapBlock || !fpArrivee || !fpDepart) return;
@@ -84,25 +132,51 @@
       recapBlock.style.display = 'none';
       return;
     }
-    var nights = Math.ceil((d2 - d1) / (24 * 60 * 60 * 1000));
+
+    var baseInfo = computeBaseAmount(d1, d2);
+    var nights = baseInfo.nights;
     if (nights <= 0) {
       recapBlock.style.display = 'none';
       return;
     }
-    var packInput = form && form.querySelector('input[name="pack"]:checked');
-    var pack = packInput ? packInput.value : 'aucun';
-    var packPrice = PACK_PRICES[pack] || 0;
-    var total = nights * BASE_PRICE + packPrice;
 
-    document.getElementById('recap-dates').textContent = d1.toLocaleDateString('fr-FR') + ' → ' + d2.toLocaleDateString('fr-FR') + ' (' + nights + ' nuit' + (nights > 1 ? 's' : '') + ')';
-    document.getElementById('recap-pack').textContent = 'Pack : ' + (PACK_LABELS[pack] || pack) + (packPrice ? ' (+ ' + packPrice + ' €)' : '');
-    document.getElementById('recap-total').textContent = 'Total : ' + total + ' €';
+    var optionKeys = getSelectedOptionKeys();
+    var optionsTotal = optionKeys.reduce(function (sum, key) {
+      return sum + (OPTION_PRICES[key] || 0);
+    }, 0);
+
+    var totalBeforeDiscount = baseInfo.base + optionsTotal;
+    var discount = nights >= 2 ? totalBeforeDiscount * 0.15 : 0;
+    var totalFinal = totalBeforeDiscount - discount;
+
+    var datesText = d1.toLocaleDateString('fr-FR') + ' → ' + d2.toLocaleDateString('fr-FR') +
+      ' (' + nights + ' nuit' + (nights > 1 ? 's' : '') + ')';
+    document.getElementById('recap-dates').textContent = datesText;
+
+    var optionsText;
+    if (!optionKeys.length) {
+      optionsText = 'Options : aucune option ajoutée';
+    } else {
+      optionsText = 'Options : ' + optionKeys.map(function (key) {
+        var label = OPTION_LABELS[key] || key;
+        var price = OPTION_PRICES[key] || 0;
+        return label + ' (+' + price + ' €)';
+      }).join(', ');
+    }
+    document.getElementById('recap-pack').textContent = optionsText;
+
+    var totalStr = totalFinal.toFixed(2).replace('.', ',');
+    var recapTotal = 'Total : ' + totalStr + ' €';
+    if (discount > 0) {
+      recapTotal += ' (remise 15 % dès 2 nuits incluse)';
+    }
+    document.getElementById('recap-total').textContent = recapTotal;
     recapBlock.style.display = 'block';
   }
 
   if (form) {
     form.addEventListener('change', function () {
-      if (form.querySelector('input[name="pack"]')) updateRecap();
+      updateRecap();
     });
   }
 
@@ -138,8 +212,7 @@
       }
       var dateArrivee = d1.toISOString().slice(0, 10);
       var dateDepart = d2.toISOString().slice(0, 10);
-      var packInput = form.querySelector('input[name="pack"]:checked');
-      var pack = packInput ? packInput.value : 'aucun';
+      var optionKeys = getSelectedOptionKeys();
       var nom = form.nom && form.nom.value ? form.nom.value.trim() : '';
       var email = form.email && form.email.value ? form.email.value.trim() : '';
       if (!nom || !email) {
@@ -155,7 +228,7 @@
       var payload = {
         date_arrivee: dateArrivee,
         date_depart: dateDepart,
-        pack: pack,
+        options: optionKeys,
         nom: nom,
         email: email,
         telephone: (form.telephone && form.telephone.value) ? form.telephone.value.trim() : '',

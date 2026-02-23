@@ -87,6 +87,12 @@ img {
   justify-content: space-between;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
 .logo-wrap {
   display: inline-flex;
   align-items: center;
@@ -157,6 +163,29 @@ img {
   background: var(--blanc-cassé);
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(255, 255, 255, 0.08);
+}
+
+.header-contact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  font-size: 0.8rem;
+}
+
+.header-phone,
+.header-mail {
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.header-phone {
+  font-weight: 600;
+}
+
+.header-mail {
+  color: var(--gris-clair);
 }
 
 /* Hero */
@@ -536,6 +565,13 @@ img {
   margin-top: 1rem;
   margin-bottom: 0;
   color: var(--blanc);
+}
+
+.reservation-note {
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--gris-clair);
 }
 
 /* Calendrier réservation */
