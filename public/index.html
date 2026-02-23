@@ -78,6 +78,34 @@
       </div>
     </section>
 
+    <section class="section" id="chambre">
+      <h2 class="section-title">La chambre</h2>
+      <p class="section-intro">
+        Découvrez votre suite noir & blanc : ambiance épurée, lit king-size, espaces pensés pour l'intimité et le bien-être.
+      </p>
+      <div class="galerie-chambre" id="galerie-chambre">
+        <button type="button" class="galerie-item" data-index="0" aria-label="Voir la photo 1"><img src="images/chambre1.jpeg" alt="Vue d'ensemble de la love room Nuit d'Or" loading="lazy"></button>
+        <button type="button" class="galerie-item" data-index="1" aria-label="Voir la photo 2"><img src="images/chambre2.jpeg" alt="Espace nuit et lit" loading="lazy"></button>
+        <button type="button" class="galerie-item" data-index="2" aria-label="Voir la photo 3"><img src="images/chambre3.jpeg" alt="Ambiance et détails" loading="lazy"></button>
+        <button type="button" class="galerie-item" data-index="3" aria-label="Voir la photo 4"><img src="images/chambre4.jpeg" alt="Espace bien-être" loading="lazy"></button>
+        <button type="button" class="galerie-item" data-index="4" aria-label="Voir la photo 5"><img src="images/chambre5.jpeg" alt="Détail décoration" loading="lazy"></button>
+        <button type="button" class="galerie-item" data-index="5" aria-label="Voir la photo 6"><img src="images/chambre6.jpeg" alt="La chambre Nuit d'Or" loading="lazy"></button>
+        <button type="button" class="galerie-item" data-index="6" aria-label="Voir la photo 7"><img src="images/chambre7.jpeg" alt="La chambre Nuit d'Or" loading="lazy"></button>
+        <button type="button" class="galerie-item" data-index="7" aria-label="Voir la photo 8"><img src="images/chambre8.jpeg" alt="La chambre Nuit d'Or" loading="lazy"></button>
+      </div>
+    </section>
+
+    <!-- Lightbox galerie -->
+    <div class="lightbox" id="lightbox-chambre" aria-hidden="true" role="dialog" aria-label="Diaporama des photos de la chambre">
+      <button type="button" class="lightbox-close" id="lightbox-close" aria-label="Fermer"></button>
+      <button type="button" class="lightbox-prev" id="lightbox-prev" aria-label="Photo précédente"></button>
+      <button type="button" class="lightbox-next" id="lightbox-next" aria-label="Photo suivante"></button>
+      <div class="lightbox-content">
+        <img src="" alt="" id="lightbox-img">
+      </div>
+      <span class="lightbox-counter" id="lightbox-counter">1 / 8</span>
+    </div>
+
     <section class="section section-cta">
       <h2 class="section-title">Prêt pour l'évasion ?</h2>
       <p class="section-intro">
@@ -105,5 +133,69 @@
       </p>
     </div>
   </footer>
+
+  <script>
+    (function () {
+      var gallery = document.getElementById('galerie-chambre');
+      var lightbox = document.getElementById('lightbox-chambre');
+      var lightboxImg = document.getElementById('lightbox-img');
+      var lightboxCounter = document.getElementById('lightbox-counter');
+      var btnClose = document.getElementById('lightbox-close');
+      var btnPrev = document.getElementById('lightbox-prev');
+      var btnNext = document.getElementById('lightbox-next');
+      var items = gallery.querySelectorAll('.galerie-item');
+      var total = items.length;
+      var currentIndex = 0;
+
+      function openLightbox(index) {
+        currentIndex = index;
+        updateLightbox();
+        lightbox.classList.add('is-open');
+        lightbox.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeLightbox() {
+        lightbox.classList.remove('is-open');
+        lightbox.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+      }
+
+      function updateLightbox() {
+        var img = items[currentIndex].querySelector('img');
+        lightboxImg.src = img.src;
+        lightboxImg.alt = img.alt;
+        lightboxCounter.textContent = (currentIndex + 1) + ' / ' + total;
+      }
+
+      function goPrev() {
+        currentIndex = (currentIndex - 1 + total) % total;
+        updateLightbox();
+      }
+
+      function goNext() {
+        currentIndex = (currentIndex + 1) % total;
+        updateLightbox();
+      }
+
+      items.forEach(function (item, i) {
+        item.addEventListener('click', function () { openLightbox(i); });
+      });
+      btnClose.addEventListener('click', closeLightbox);
+      btnPrev.addEventListener('click', goPrev);
+      btnNext.addEventListener('click', goNext);
+
+      lightbox.addEventListener('click', function (e) {
+        if (e.target === lightbox) closeLightbox();
+      });
+
+      document.addEventListener('keydown', function (e) {
+        if (!lightbox.classList.contains('is-open')) return;
+        if (e.key === 'Escape') closeLightbox();
+        if (e.key === 'ArrowLeft') goPrev();
+        if (e.key === 'ArrowRight') goNext();
+      });
+    })();
+  </script>
 </body>
 </html>

@@ -1,8 +1,21 @@
 const { Resend } = require('resend');
+const fs = require('fs');
+const path = require('path');
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Nuit d\'Or Loveroom <onboarding@resend.dev>';
 const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || null;
+
+// Chemin du PDF à joindre à l'email de confirmation.
+// Placez votre fichier dans public/docs/pdfloveroom.pdf
+// ou surchargez via la variable d'env BOOKING_PDF_PATH.
+const PDF_ATTACHMENT_PATH =
+  process.env.BOOKING_PDF_PATH ||
+  path.join(__dirname, '..', 'public', 'docs', 'pdfloveroom.pdf');
+
+const PDF_ATTACHMENT_NAME =
+  process.env.BOOKING_PDF_NAME ||
+  'pdfloveroom.pdf';
 
 const PACK_LABELS = {
   aucun: 'Sans pack',
@@ -62,11 +75,28 @@ async function sendConfirmationEmail(booking) {
     const html = buildConfirmationHtml(booking);
     const to = [booking.email];
     if (NOTIFY_EMAIL) to.push(NOTIFY_EMAIL);
+
+    // Prépare un éventuel PDF en pièce jointe (si présent sur le disque)
+    let attachments;
+    try {
+      if (PDF_ATTACHMENT_PATH && fs.existsSync(PDF_ATTACHMENT_PATH)) {
+        const fileBuffer = fs.readFileSync(PDF_ATTACHMENT_PATH);
+        attachments = [{
+          filename: PDF_ATTACHMENT_NAME,
+          content: fileBuffer,
+          contentType: 'application/pdf'
+        }];
+      }
+    } catch (e) {
+      console.error('Erreur lecture PDF à joindre :', e);
+    }
+
     const { data, error } = await resend.emails.send({
       from: EMAIL_FROM,
       to,
       subject: 'Réservation confirmée — Nuit d\'Or Loveroom',
-      html
+      html,
+      attachments
     });
     if (error) {
       console.error('Erreur envoi email:', error);
