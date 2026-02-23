@@ -225,7 +225,7 @@ app.post('/api/create-reservation', async (req, res) => {
     const message = err.message || 'Erreur inconnue';
     res.status(500).json({
       error: 'Erreur lors de la création de la réservation',
-      detail: process.env.NODE_ENV !== 'production' ? message : undefined
+      detail: message
     });
   }
 });
