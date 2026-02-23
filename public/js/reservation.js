@@ -289,23 +289,42 @@
   if (params.get('success') === '1') {
     if (recapBlock) recapBlock.style.display = 'none';
     var sessionId = params.get('session_id');
+    var recapSuccess = document.getElementById('recap-success');
     if (sessionId) {
       var xhr = new XMLHttpRequest();
       xhr.open('GET', API_BASE + '/api/confirm-session?session_id=' + encodeURIComponent(sessionId), true);
       xhr.onload = function () {
-        var msg = 'Merci ! Votre réservation est confirmée. Un email de confirmation vous a été envoyé.';
-        if (xhr.status !== 200) msg = 'Merci ! Votre réservation est confirmée.';
-        alert(msg);
         window.history.replaceState({}, document.title, window.location.pathname);
+        alert('Merci ! Votre réservation est confirmée. Consultez le récapitulatif ci-dessous.');
+        if (xhr.status === 200 && recapSuccess) {
+          try {
+            var data = JSON.parse(xhr.responseText);
+            if (data.booking) {
+              var b = data.booking;
+              document.getElementById('recap-success-nom').textContent = b.nom || '';
+              var d1 = b.date_arrivee ? new Date(b.date_arrivee) : null;
+              var d2 = b.date_depart ? new Date(b.date_depart) : null;
+              var datesStr = (d1 && d2) ? 'Du ' + d1.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' au ' + d2.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : (b.date_arrivee + ' → ' + b.date_depart);
+              document.getElementById('recap-success-dates').textContent = datesStr;
+              var optKeys = (b.options || '').split(',').filter(Boolean);
+              var optionsStr = optKeys.length ? optKeys.map(function (k) { return OPTION_LABELS[k] || k; }).join(', ') : 'Aucune option';
+              document.getElementById('recap-success-options').textContent = 'Options : ' + optionsStr;
+              var totalEuros = b.amount_cents ? (b.amount_cents / 100).toFixed(2).replace('.', ',') : '—';
+              document.getElementById('recap-success-total').textContent = 'Total payé : ' + totalEuros + ' €';
+              recapSuccess.style.display = 'block';
+              if (form) form.style.display = 'none';
+            }
+          } catch (e) {}
+        }
       };
       xhr.onerror = function () {
-        alert('Merci ! Votre réservation est confirmée. Vous recevrez un email de confirmation.');
         window.history.replaceState({}, document.title, window.location.pathname);
+        alert('Merci ! Votre réservation est confirmée.');
       };
       xhr.send();
     } else {
-      alert('Merci ! Votre réservation est confirmée. Vous recevrez un email de confirmation.');
       window.history.replaceState({}, document.title, window.location.pathname);
+      alert('Merci ! Votre réservation est confirmée.');
     }
   }
   if (params.get('cancel') === '1') {

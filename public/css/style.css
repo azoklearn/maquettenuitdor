@@ -705,6 +705,43 @@ img {
   color: var(--blanc);
 }
 
+.recap-success {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.recap-success h3 {
+  color: var(--blanc);
+  margin-bottom: 0.75rem;
+}
+
+.recap-success-intro {
+  margin-bottom: 1rem;
+  color: var(--gris-clair);
+}
+
+.recap-success-total {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: var(--blanc);
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.recap-success-contact {
+  font-size: 0.9rem;
+  color: var(--gris-clair);
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--bordure);
+}
+
+.recap-success-contact a {
+  color: var(--blanc);
+  text-decoration: underline;
+}
+
 .reservation-note {
   margin-top: 1rem;
   margin-bottom: 1.5rem;

@@ -3,7 +3,6 @@ const express = require('express');
 const path = require('path');
 const Stripe = require('stripe');
 const db = require('./server/db');
-const mail = require('./server/mail');
 
 const app = express();
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
@@ -54,6 +53,17 @@ const BASE_URL = process.env.BASE_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
   'http://localhost:3000';
 
+function buildBookingForClient(booking) {
+  if (!booking) return null;
+  return {
+    nom: booking.nom,
+    date_arrivee: booking.date_arrivee,
+    date_depart: booking.date_depart,
+    options: typeof booking.pack === 'string' ? booking.pack : (booking.pack || ''),
+    amount_cents: booking.amount_cents
+  };
+}
+
 try {
   db.initDb();
 } catch (e) {
@@ -94,9 +104,6 @@ app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }), (req, 
           amount_cents: Number(session.metadata.amount_cents) || session.amount_total || 0
         };
       }
-      if (booking) {
-        mail.sendConfirmationEmail(booking).catch((err) => console.error('Email confirmation:', err));
-      }
     }
   }
   res.json({ received: true });
@@ -130,13 +137,13 @@ app.get('/api/confirm-session', async (req, res) => {
       };
     }
     if (!booking) return res.status(404).json({ error: 'Réservation introuvable' });
+    const clientBooking = buildBookingForClient(booking);
     if (booking.status === 'paid') {
-      return res.json({ ok: true, already: true });
+      return res.json({ ok: true, already: true, booking: clientBooking });
     }
     db.setBookingPaid(Number(bookingId), sessionId);
     const updated = db.getBookingById(Number(bookingId)) || booking;
-    mail.sendConfirmationEmail(updated).catch((e) => console.error('Email:', e));
-    res.json({ ok: true });
+    res.json({ ok: true, booking: buildBookingForClient(updated) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur lors de la confirmation' });
