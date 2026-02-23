@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const Stripe = require('stripe');
 const db = require('./server/db');
+const blockedStore = require('./server/blocked-dates-store');
 
 const app = express();
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
@@ -151,10 +152,13 @@ app.get('/api/confirm-session', async (req, res) => {
 });
 
 // Créneaux déjà réservés + dates bloquées (à désactiver dans le calendrier)
-app.get('/api/booked-dates', (req, res) => {
+app.get('/api/booked-dates', async (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   try {
     const fromBookings = db.getBookedDates();
-    const fromBlocked = db.getBlockedDates ? db.getBlockedDates() : [];
+    const fromBlocked = blockedStore.useRedis()
+      ? await blockedStore.getBlockedDatesFromStore()
+      : (db.getBlockedDates ? db.getBlockedDates() : []);
     const dates = [...new Set([...fromBookings, ...fromBlocked])];
     res.json({ dates });
   } catch (err) {
@@ -201,9 +205,11 @@ app.delete('/api/admin/bookings/:id', requireAdmin, (req, res) => {
 });
 
 // Admin : dates bloquées (indisponibles au calendrier)
-app.get('/api/admin/blocked-dates', requireAdmin, (req, res) => {
+app.get('/api/admin/blocked-dates', requireAdmin, async (req, res) => {
   try {
-    const dates = db.getBlockedDates ? db.getBlockedDates() : [];
+    const dates = blockedStore.useRedis()
+      ? await blockedStore.getBlockedDatesFromStore()
+      : (db.getBlockedDates ? db.getBlockedDates() : []);
     res.json({ dates });
   } catch (err) {
     console.error(err);
@@ -211,14 +217,16 @@ app.get('/api/admin/blocked-dates', requireAdmin, (req, res) => {
   }
 });
 
-app.post('/api/admin/blocked-dates', requireAdmin, (req, res) => {
+app.post('/api/admin/blocked-dates', requireAdmin, async (req, res) => {
   const date = req.body && req.body.date;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date).slice(0, 10))) {
     return res.status(400).json({ error: 'Date invalide (format YYYY-MM-DD)' });
   }
   const normalized = String(date).slice(0, 10);
   try {
-    const added = db.addBlockedDate(normalized);
+    const added = blockedStore.useRedis()
+      ? await blockedStore.addBlockedDateToStore(normalized)
+      : (db.addBlockedDate && db.addBlockedDate(normalized));
     if (!added) return res.status(409).json({ error: 'Date déjà bloquée' });
     res.json({ ok: true, date: normalized });
   } catch (err) {
@@ -227,14 +235,16 @@ app.post('/api/admin/blocked-dates', requireAdmin, (req, res) => {
   }
 });
 
-app.delete('/api/admin/blocked-dates/:date', requireAdmin, (req, res) => {
+app.delete('/api/admin/blocked-dates/:date', requireAdmin, async (req, res) => {
   const date = req.params.date;
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date).slice(0, 10))) {
     return res.status(400).json({ error: 'Date invalide' });
   }
   const normalized = String(date).slice(0, 10);
   try {
-    const removed = db.removeBlockedDate(normalized);
+    const removed = blockedStore.useRedis()
+      ? await blockedStore.removeBlockedDateFromStore(normalized)
+      : (db.removeBlockedDate && db.removeBlockedDate(normalized));
     if (!removed) return res.status(404).json({ error: 'Date non bloquée' });
     res.json({ ok: true });
   } catch (err) {

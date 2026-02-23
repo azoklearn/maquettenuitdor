@@ -12,7 +12,8 @@
 
   function getBookedDates(callback) {
     var xhr = new XMLHttpRequest();
-    xhr.open('GET', API_BASE + '/api/booked-dates', true);
+    var url = API_BASE + '/api/booked-dates?t=' + Date.now();
+    xhr.open('GET', url, true);
     xhr.onload = function () {
       if (xhr.status === 200) {
         try {
@@ -29,25 +30,34 @@
     xhr.send();
   }
 
-  function disableDatesForFlatpickr(dates) {
-    if (!dates || !dates.length) return [];
-    return dates.map(function (d) {
+  function toYMD(date) {
+    var d = new Date(date);
+    var y = d.getFullYear();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+
+  function buildDisabledSet(dates) {
+    var set = new Set();
+    if (!dates || !dates.length) return set;
+    dates.forEach(function (d) {
       var s = String(d).trim().slice(0, 10);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-        var parts = s.split('-');
-        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-      }
-      return d;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) set.add(s);
     });
+    return set;
   }
 
   function initCalendars(disabledDates) {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    var disableRule = disabledDates && disabledDates.length
-      ? disableDatesForFlatpickr(disabledDates)
-      : [];
+    var disabledSet = buildDisabledSet(disabledDates);
+    var disableRule = [
+      function (date) {
+        return disabledSet.has(toYMD(date));
+      }
+    ];
 
     fpArrivee = flatpickr(inputArrivee, {
       locale: 'fr',
