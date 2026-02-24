@@ -264,6 +264,25 @@ img {
   box-shadow: 0 12px 32px rgba(255, 255, 255, 0.15);
 }
 
+.hero-photo {
+  margin-top: 2.5rem;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+  position: relative;
+  z-index: 1;
+}
+
+.hero-photo img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;
