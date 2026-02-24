@@ -155,10 +155,38 @@ app.get('/api/confirm-session', async (req, res) => {
 app.get('/api/booked-dates', async (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   try {
-    const fromBookings = db.getBookedDates();
+    let fromBookings = [];
+
+    // Sur Vercel avec Stripe configuré : on prend les réservations payées depuis Stripe
+    if (stripe && process.env.VERCEL) {
+      const sessions = await stripe.checkout.sessions.list({ limit: 100 });
+      const dateSet = new Set();
+      (sessions.data || []).forEach((s) => {
+        if (s.payment_status !== 'paid') return;
+        const meta = s.metadata || {};
+        if (!meta.date_arrivee || !meta.date_depart) return;
+        const start = new Date(meta.date_arrivee);
+        const end = new Date(meta.date_depart);
+        if (isNaN(start) || isNaN(end)) return;
+        const cursor = new Date(start.getTime());
+        cursor.setHours(0, 0, 0, 0);
+        const limit = new Date(end.getTime());
+        limit.setHours(0, 0, 0, 0);
+        while (cursor < limit) {
+          dateSet.add(cursor.toISOString().slice(0, 10));
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      });
+      fromBookings = Array.from(dateSet);
+    } else {
+      // En local (SQLite) : on lit la base de données
+      fromBookings = db.getBookedDates();
+    }
+
     const fromBlocked = blockedStore.useRedis()
       ? await blockedStore.getBlockedDatesFromStore()
       : (db.getBlockedDates ? db.getBlockedDates() : []);
+
     const dates = [...new Set([...fromBookings, ...fromBlocked])];
     res.json({ dates });
   } catch (err) {
@@ -224,10 +252,16 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
   }
 });
 
-app.delete('/api/admin/bookings/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID invalide' });
   try {
+    // Sur Vercel avec Stripe, on ne supprime pas la session Stripe elle-même,
+    // mais on ne renvoie plus d'erreur si la réservation n'existe pas dans la base interne.
+    if (stripe && process.env.VERCEL) {
+      return res.json({ ok: true });
+    }
+
     const deleted = db.deleteBooking(id);
     if (!deleted) return res.status(404).json({ error: 'Réservation introuvable' });
     res.json({ ok: true });
