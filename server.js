@@ -181,8 +181,41 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-app.get('/api/admin/bookings', requireAdmin, (req, res) => {
+app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
   try {
+    // Sur Vercel avec Stripe configuré, on lit les réservations depuis Stripe (source de vérité)
+    if (stripe && process.env.VERCEL) {
+      const sessions = await stripe.checkout.sessions.list({ limit: 100 });
+      const bookings = (sessions.data || [])
+        .filter((s) => s.metadata && s.metadata.date_arrivee && s.metadata.date_depart)
+        .map((s) => {
+          const meta = s.metadata || {};
+          const createdIso = s.created ? new Date(s.created * 1000).toISOString() : null;
+          const amountCents = Number(meta.amount_cents) || s.amount_total || 0;
+          return {
+            id: meta.booking_id ? Number(meta.booking_id) : null,
+            date_arrivee: meta.date_arrivee || '',
+            date_depart: meta.date_depart || '',
+            pack: meta.options || '',
+            nom: meta.nom || '',
+            email: meta.email || s.customer_email || '',
+            telephone: null,
+            amount_cents: amountCents,
+            status: s.payment_status === 'paid' ? 'paid' : 'pending',
+            created_at: createdIso,
+            stripe_session_id: s.id
+          };
+        })
+        .sort((a, b) => {
+          if (!a.created_at && !b.created_at) return 0;
+          if (!a.created_at) return 1;
+          if (!b.created_at) return -1;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+      return res.json({ bookings });
+    }
+
+    // En local (SQLite) ou sans Stripe : on lit la base
     const bookings = db.getAllBookings();
     res.json({ bookings });
   } catch (err) {
