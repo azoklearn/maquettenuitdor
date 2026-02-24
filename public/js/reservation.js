@@ -312,6 +312,8 @@
       xhr.open('GET', API_BASE + '/api/confirm-session?session_id=' + encodeURIComponent(sessionId), true);
       xhr.onload = function () {
         window.history.replaceState({}, document.title, window.location.pathname);
+        if (form) form.style.display = 'none';
+        if (recapSuccess) recapSuccess.style.display = 'block';
         alert('Merci ! Votre réservation est confirmée. Consultez le récapitulatif ci-dessous.');
         if (xhr.status === 200 && recapSuccess) {
           try {
@@ -328,14 +330,28 @@
               document.getElementById('recap-success-options').textContent = 'Options : ' + optionsStr;
               var totalEuros = b.amount_cents ? (b.amount_cents / 100).toFixed(2).replace('.', ',') : '—';
               document.getElementById('recap-success-total').textContent = 'Total payé : ' + totalEuros + ' €';
-              recapSuccess.style.display = 'block';
-              if (form) form.style.display = 'none';
+            } else {
+              document.getElementById('recap-success-dates').textContent = 'Votre paiement a bien été reçu.';
+              document.getElementById('recap-success-options').textContent = '';
+              document.getElementById('recap-success-total').textContent = '';
             }
-          } catch (e) {}
+          } catch (e) {
+            document.getElementById('recap-success-dates').textContent = 'Votre paiement a bien été reçu.';
+            document.getElementById('recap-success-options').textContent = '';
+            document.getElementById('recap-success-total').textContent = '';
+          }
         }
       };
       xhr.onerror = function () {
         window.history.replaceState({}, document.title, window.location.pathname);
+        if (form) form.style.display = 'none';
+        if (recapSuccess) {
+          recapSuccess.style.display = 'block';
+          document.getElementById('recap-success-nom').textContent = '';
+          document.getElementById('recap-success-dates').textContent = 'Votre paiement a bien été reçu.';
+          document.getElementById('recap-success-options').textContent = '';
+          document.getElementById('recap-success-total').textContent = '';
+        }
         alert('Merci ! Votre réservation est confirmée.');
       };
       xhr.send();
