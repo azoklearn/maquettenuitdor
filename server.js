@@ -157,13 +157,21 @@ app.get('/api/booked-dates', async (req, res) => {
   try {
     let fromBookings = [];
 
-    // Sur Vercel avec Stripe configuré : on prend les réservations payées depuis Stripe
+    // Sur Vercel avec Stripe configuré : on prend les réservations payées depuis Stripe,
+    // en excluant celles marquées comme « supprimées » dans le store.
     if (stripe && process.env.VERCEL) {
+      const cancelledIds = blockedStore.useRedis()
+        ? await blockedStore.getCancelledBookingsFromStore()
+        : [];
+      const cancelledSet = new Set((cancelledIds || []).map((x) => String(x)));
+
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
       const dateSet = new Set();
       (sessions.data || []).forEach((s) => {
         if (s.payment_status !== 'paid') return;
         const meta = s.metadata || {};
+        const bookingId = meta.booking_id ? String(meta.booking_id) : null;
+        if (bookingId && cancelledSet.has(bookingId)) return;
         if (!meta.date_arrivee || !meta.date_depart) return;
         const start = new Date(meta.date_arrivee);
         const end = new Date(meta.date_depart);
@@ -214,6 +222,11 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
     // Sur Vercel avec Stripe configuré, on lit les réservations depuis Stripe (source de vérité)
     if (stripe && process.env.VERCEL) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
+      const cancelledIds = blockedStore.useRedis()
+        ? await blockedStore.getCancelledBookingsFromStore()
+        : [];
+      const cancelledSet = new Set((cancelledIds || []).map((x) => String(x)));
+
       const bookings = (sessions.data || [])
         .filter((s) => s.metadata && s.metadata.date_arrivee && s.metadata.date_depart)
         .map((s) => {
@@ -234,6 +247,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
             stripe_session_id: s.id
           };
         })
+        .filter((b) => !b.id || !cancelledSet.has(String(b.id)))
         .sort((a, b) => {
           if (!a.created_at && !b.created_at) return 0;
           if (!a.created_at) return 1;
@@ -257,8 +271,11 @@ app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   if (!id) return res.status(400).json({ error: 'ID invalide' });
   try {
     // Sur Vercel avec Stripe, on ne supprime pas la session Stripe elle-même,
-    // mais on ne renvoie plus d'erreur si la réservation n'existe pas dans la base interne.
+    // mais on marque la réservation comme « annulée » dans le store pour libérer les dates.
     if (stripe && process.env.VERCEL) {
+      if (blockedStore.useRedis()) {
+        await blockedStore.addCancelledBookingToStore(String(id));
+      }
       return res.json({ ok: true });
     }
 

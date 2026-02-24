@@ -1,9 +1,13 @@
 /**
- * Stockage des dates bloquées : Redis (Vercel) ou mémoire (db).
- * Sur Vercel, utilise Upstash Redis pour que les dates persistent entre les requêtes.
+ * Stockage :
+ * - dates bloquées (indisponibles au calendrier)
+ * - réservations « supprimées » côté admin (à ignorer pour les indispos)
+ *
+ * Sur Vercel, utilise Upstash Redis pour que ces infos persistent entre les requêtes.
  */
 
 const BLOCKED_DATES_KEY = 'nuitdor_blocked_dates';
+const CANCELLED_BOOKINGS_KEY = 'nuitdor_cancelled_bookings';
 
 let redis = null;
 try {
@@ -33,6 +37,28 @@ async function getBlockedDatesFromStore() {
       return [];
     } catch (e) {
       console.error('Redis get blocked_dates:', e);
+      return [];
+    }
+  }
+  return [];
+}
+
+async function getCancelledBookingsFromStore() {
+  if (redis) {
+    try {
+      const raw = await redis.get(CANCELLED_BOOKINGS_KEY);
+      if (Array.isArray(raw)) return raw.map((x) => String(x));
+      if (typeof raw === 'string') {
+        try {
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed.map((x) => String(x)) : [];
+        } catch (_) {
+          return [];
+        }
+      }
+      return [];
+    } catch (e) {
+      console.error('Redis get cancelled_bookings:', e);
       return [];
     }
   }
@@ -76,6 +102,24 @@ async function removeBlockedDateFromStore(date) {
   return false;
 }
 
+async function addCancelledBookingToStore(id) {
+  const key = String(id);
+  if (!key) return false;
+  if (redis) {
+    try {
+      const list = await getCancelledBookingsFromStore();
+      if (list.includes(key)) return false;
+      list.push(key);
+      await redis.set(CANCELLED_BOOKINGS_KEY, JSON.stringify(list));
+      return true;
+    } catch (e) {
+      console.error('Redis set cancelled_bookings:', e);
+      return false;
+    }
+  }
+  return false;
+}
+
 function useRedis() {
   return !!redis;
 }
@@ -84,5 +128,7 @@ module.exports = {
   getBlockedDatesFromStore,
   addBlockedDateToStore,
   removeBlockedDateFromStore,
+  getCancelledBookingsFromStore,
+  addCancelledBookingToStore,
   useRedis
 };
