@@ -57,7 +57,7 @@ function getBookedDates() {
   const rows = db.prepare(`
     SELECT date_arrivee, date_depart
     FROM bookings
-    WHERE status = 'paid'
+    WHERE status IN ('pending', 'paid')
   `).all();
   db.close();
 

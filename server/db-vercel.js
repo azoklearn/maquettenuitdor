@@ -18,7 +18,7 @@ function initDb() {
 function getBookedDates() {
   const dates = new Set();
   for (const row of bookings) {
-    if (row.status !== 'paid') continue;
+    if (row.status !== 'paid' && row.status !== 'pending') continue;
     const start = new Date(row.date_arrivee);
     const end = new Date(row.date_depart);
     for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {

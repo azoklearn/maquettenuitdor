@@ -208,6 +208,13 @@ app.get('/api/booked-dates', async (req, res) => {
         }
       });
       fromBookings = Array.from(dateSet);
+
+      // Fallback : si aucune date trouvée via Stripe (mauvaise clé, environnement…),
+      // on ajoute aussi les dates issues de la base locale si disponible.
+      if (db.getBookedDates) {
+        const localDates = db.getBookedDates() || [];
+        fromBookings = [...new Set([...fromBookings, ...localDates])];
+      }
     } else {
       // En local (SQLite) : on lit la base de données
       fromBookings = db.getBookedDates();
@@ -276,7 +283,12 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
           if (!b.created_at) return -1;
           return new Date(b.created_at) - new Date(a.created_at);
         });
-      return res.json({ bookings });
+
+      // Si Stripe ne renvoie rien (ou que la clé n'est pas la bonne),
+      // on retombe sur les réservations stockées en base si elles existent.
+      if (bookings.length > 0) {
+        return res.json({ bookings });
+      }
     }
 
     // En local (SQLite) ou sans Stripe : on lit la base
