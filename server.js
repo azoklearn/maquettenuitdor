@@ -179,9 +179,9 @@ app.get('/api/booked-dates', async (req, res) => {
   try {
     let fromBookings = [];
 
-    // Sur Vercel avec Stripe configuré : on prend les réservations payées depuis Stripe,
+    // Avec Stripe configuré : on prend les réservations payées depuis Stripe,
     // en excluant celles marquées comme « supprimées » dans le store.
-    if (stripe && process.env.VERCEL) {
+    if (stripe) {
       const cancelledIds = blockedStore.useRedis()
         ? await blockedStore.getCancelledBookingsFromStore()
         : [];
@@ -209,15 +209,8 @@ app.get('/api/booked-dates', async (req, res) => {
         }
       });
       fromBookings = Array.from(dateSet);
-
-      // Fallback : si aucune date trouvée via Stripe (mauvaise clé, environnement…),
-      // on ajoute aussi les dates issues de la base locale si disponible.
-      if (db.getBookedDates) {
-        const localDates = db.getBookedDates() || [];
-        fromBookings = [...new Set([...fromBookings, ...localDates])];
-      }
     } else {
-      // En local (SQLite) : on lit la base de données
+      // Sans Stripe : on lit la base de données locale
       fromBookings = db.getBookedDates();
     }
 
@@ -249,8 +242,8 @@ function requireAdmin(req, res, next) {
 
 app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
   try {
-    // Sur Vercel avec Stripe configuré, on lit les réservations depuis Stripe (source de vérité)
-    if (stripe && process.env.VERCEL) {
+    // Avec Stripe configuré, on lit les réservations depuis Stripe (source de vérité)
+    if (stripe) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
       const cancelledIds = blockedStore.useRedis()
         ? await blockedStore.getCancelledBookingsFromStore()
@@ -285,52 +278,11 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
           if (!b.created_at) return -1;
           return new Date(b.created_at) - new Date(a.created_at);
         });
-
-      // Si Stripe ne renvoie rien (ou que la clé n'est pas la bonne),
-      // on retombe sur les réservations stockées en base si elles existent.
-      if (bookings.length > 0) {
-        return res.json({ bookings });
-      }
+      return res.json({ bookings });
     }
 
-    // En local (SQLite) ou sans Vercel :
-    // - on lit la base
-    // - si Stripe est configuré, on surclasse le statut avec l'info de paiement réelle
-    let bookings = db.getAllBookings();
-
-    if (stripe && !process.env.VERCEL) {
-      try {
-        const sessions = await stripe.checkout.sessions.list({ limit: 100 });
-        const byBookingId = new Map();
-        (sessions.data || []).forEach((s) => {
-          const meta = s.metadata || {};
-          if (!meta.booking_id) return;
-          const idNum = Number(meta.booking_id);
-          if (!idNum) return;
-          // On ne garde que la session la plus récente pour ce booking_id
-          const existing = byBookingId.get(idNum);
-          if (!existing || (s.created && (!existing.created || s.created > existing.created))) {
-            byBookingId.set(idNum, s);
-          }
-        });
-
-        bookings = bookings.map((b) => {
-          const s = byBookingId.get(b.id);
-          if (!s) return b;
-          const paid = (s.payment_status === 'paid') || (s.status === 'complete');
-          // On renvoie le statut réel Stripe, sans forcément modifier la base
-          return {
-            ...b,
-            status: paid ? 'paid' : (b.status || 'pending'),
-            amount_cents: Number(s.metadata?.amount_cents) || s.amount_total || b.amount_cents || 0,
-            stripe_session_id: s.id
-          };
-        });
-      } catch (err) {
-        console.error('Erreur récupération sessions Stripe pour admin local:', err);
-      }
-    }
-
+    // Sans Stripe : on lit la base SQLite locale
+    const bookings = db.getAllBookings();
     res.json({ bookings });
   } catch (err) {
     console.error(err);
