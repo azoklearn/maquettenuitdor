@@ -160,21 +160,24 @@
         tableWrap.style.display = 'block';
         tbody.innerHTML = '';
         bookings.forEach(function (b) {
-        var tr = document.createElement('tr');
-        var datesStr = (b.date_arrivee || '') + ' → ' + (b.date_depart || '');
-        var totalEuros = b.amount_cents != null ? (b.amount_cents / 100).toFixed(2) + ' €' : '—';
-        tr.innerHTML =
-          '<td>' + escapeHtml(datesStr) + '</td>' +
-          '<td><strong>' + escapeHtml(b.nom || '') + '</strong><br><small>' + escapeHtml(b.email || '') + '</small></td>' +
-          '<td>' + totalEuros + '</td>' +
-          '<td><span class="admin-status admin-status-' + (b.status || 'pending') + '">' + escapeHtml(b.status === 'paid' ? 'Payé' : 'En attente') + '</span></td>' +
-          '<td><button type="button" class="admin-btn admin-btn-danger" data-id="' + b.id + '">Supprimer</button></td>';
-        tbody.appendChild(tr);
-        tr.querySelector('.admin-btn-danger').addEventListener('click', function () {
-          if (!confirm('Supprimer cette réservation ? Les dates seront à nouveau disponibles.')) return;
-          deleteBooking(b.id, tr);
+          var tr = document.createElement('tr');
+          var datesStr = (b.date_arrivee || '') + ' → ' + (b.date_depart || '');
+          var totalEuros = b.amount_cents != null ? (b.amount_cents / 100).toFixed(2) + ' €' : '—';
+          var isPaid = (b.status === 'paid') || !!b.stripe_session_id;
+          var statusClass = isPaid ? 'paid' : (b.status || 'pending');
+          var statusLabel = isPaid ? 'Payé' : 'En attente';
+          tr.innerHTML =
+            '<td>' + escapeHtml(datesStr) + '</td>' +
+            '<td><strong>' + escapeHtml(b.nom || '') + '</strong><br><small>' + escapeHtml(b.email || '') + '</small></td>' +
+            '<td>' + totalEuros + '</td>' +
+            '<td><span class="admin-status admin-status-' + statusClass + '">' + escapeHtml(statusLabel) + '</span></td>' +
+            '<td><button type="button" class="admin-btn admin-btn-danger" data-id="' + b.id + '">Supprimer</button></td>';
+          tbody.appendChild(tr);
+          tr.querySelector('.admin-btn-danger').addEventListener('click', function () {
+            if (!confirm('Supprimer cette réservation ? Les dates seront à nouveau disponibles.')) return;
+            deleteBooking(b.id, tr);
+          });
         });
-      });
       }
       loadBlockedDates();
     };
