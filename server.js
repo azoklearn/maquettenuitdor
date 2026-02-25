@@ -204,7 +204,7 @@ app.get('/api/booked-dates', async (req, res) => {
       }
     }
 
-    // Avec Redis : on prend les réservations payées depuis le store
+    // 1) Redis : réservations payées depuis le store
     if (blockedStore.useRedis()) {
       const list = await blockedStore.getBookingsFromStore();
       const dateSet = new Set();
@@ -213,7 +213,9 @@ app.get('/api/booked-dates', async (req, res) => {
         addDatesFromRange(dateSet, b.date_arrivee, b.date_depart, b.id);
       });
       fromBookings = Array.from(dateSet);
-    } else if (stripe) {
+    }
+    // 2) Fallback Stripe : si aucune date venue de Redis, on prend les sessions payées Stripe
+    if (fromBookings.length === 0 && stripe) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
       const dateSet = new Set();
       (sessions.data || []).forEach((s) => {
@@ -224,7 +226,9 @@ app.get('/api/booked-dates', async (req, res) => {
         addDatesFromRange(dateSet, meta.date_arrivee, meta.date_depart, meta.booking_id);
       });
       fromBookings = Array.from(dateSet);
-    } else {
+    }
+    // 3) Fallback SQLite (local)
+    if (fromBookings.length === 0) {
       fromBookings = db.getBookedDates();
     }
 
@@ -261,10 +265,12 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
       : [];
     const cancelledSet = new Set((cancelledIds || []).map((x) => String(x)));
 
-    // Avec Redis (Vercel) : source de vérité = Redis (résas enregistrées à la création + mises à jour au paiement)
+    let bookings = [];
+
+    // 1) Redis : si on a des résas en Redis, on les utilise
     if (blockedStore.useRedis()) {
       const list = await blockedStore.getBookingsFromStore();
-      const bookings = list
+      bookings = list
         .filter((b) => !cancelledSet.has(String(b.id)))
         .map((b) => ({
           id: b.id,
@@ -285,13 +291,12 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
           if (!b.created_at) return -1;
           return new Date(b.created_at) - new Date(a.created_at);
         });
-      return res.json({ bookings });
     }
 
-    // Sans Redis : Stripe si configuré, sinon SQLite
-    if (stripe) {
+    // 2) Fallback Stripe : si rien en Redis (ou pas de Redis), on lit les sessions Stripe
+    if (bookings.length === 0 && stripe) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
-      const bookings = (sessions.data || [])
+      bookings = (sessions.data || [])
         .filter((s) => s.metadata && s.metadata.date_arrivee && s.metadata.date_depart)
         .map((s) => {
           const meta = s.metadata || {};
@@ -319,10 +324,13 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
           if (!b.created_at) return -1;
           return new Date(b.created_at) - new Date(a.created_at);
         });
-      return res.json({ bookings });
     }
 
-    const bookings = db.getAllBookings();
+    // 3) Fallback SQLite (local sans Redis)
+    if (bookings.length === 0) {
+      bookings = db.getAllBookings();
+    }
+
     res.json({ bookings });
   } catch (err) {
     console.error(err);
@@ -399,6 +407,27 @@ app.delete('/api/admin/blocked-dates/:date', requireAdmin, async (req, res) => {
 });
 
 // Créer une réservation et obtenir l’URL de paiement Stripe
+// Diagnostic Stripe : vérifier que la clé pointe vers le bon compte
+app.get('/api/stripe-check', async (req, res) => {
+  if (!stripe) {
+    return res.json({ stripe_ok: false, error: 'STRIPE_SECRET_KEY non configurée' });
+  }
+  try {
+    const sessions = await stripe.checkout.sessions.list({ limit: 10 });
+    return res.json({
+      stripe_ok: true,
+      recent_sessions_count: (sessions.data || []).length,
+      message: 'Compare avec ton dashboard Stripe (Paiements / Checkout). Si 0 ici mais des paiements chez toi, la clé Vercel pointe vers un autre compte.'
+    });
+  } catch (err) {
+    return res.json({
+      stripe_ok: false,
+      error: err.message || 'Erreur Stripe',
+      message: 'Clé invalide ou révoquée. Vérifie STRIPE_SECRET_KEY sur Vercel = Stripe > Développeurs > Clés API.'
+    });
+  }
+});
+
 app.get('/api/validate-promo', (req, res) => {
   const code = req.query.code;
   const result = validatePromoCode(code);
