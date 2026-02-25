@@ -336,6 +336,13 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
       bookings = db.getAllBookings();
     }
 
+    // Normaliser l'affichage : dates vides → "—" (anciennes résas sans metadata)
+    bookings = bookings.map((b) => ({
+      ...b,
+      date_arrivee: b.date_arrivee || '—',
+      date_depart: b.date_depart || '—'
+    }));
+
     res.json({ bookings });
   } catch (err) {
     console.error(err);
