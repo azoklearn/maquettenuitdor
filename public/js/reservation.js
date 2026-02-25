@@ -6,7 +6,12 @@
   var inputDepart = document.getElementById('date-depart');
   var btnSubmit = document.getElementById('btn-submit');
   var recapBlock = document.getElementById('recap-prix');
+  var inputPromo = document.getElementById('promo');
+  var btnApplyPromo = document.getElementById('btn-apply-promo');
+  var promoFeedback = document.getElementById('promo-feedback');
+  var recapPromoLine = document.getElementById('recap-promo');
   var fpArrivee, fpDepart;
+  var appliedPromo = null; // { valid: true, discount_percent: 10 } ou null
 
   var API_BASE = '';
 
@@ -117,7 +122,7 @@
     petales: 'Pétales de roses',
     bouquet: 'Bouquet personnalisé',
     champagne: 'Champagne',
-    formule80: 'Formule 80',
+    formule80: 'Formule Romance',
     arrivee15: 'Arrivée anticipée (15h)',
     depart14: 'Départ tardif (14h)'
   };
@@ -165,6 +170,9 @@
     var totalBeforeDiscount = baseInfo.base + optionsTotal;
     var discount = nights >= 2 ? totalBeforeDiscount * 0.15 : 0;
     var totalFinal = totalBeforeDiscount - discount;
+    if (appliedPromo && appliedPromo.valid) {
+      totalFinal = totalFinal * (1 - appliedPromo.discount_percent / 100);
+    }
 
     var datesText = d1.toLocaleDateString('fr-FR') + ' → ' + d2.toLocaleDateString('fr-FR') +
       ' (' + nights + ' nuit' + (nights > 1 ? 's' : '') + ')';
@@ -182,6 +190,16 @@
     }
     document.getElementById('recap-pack').textContent = optionsText;
 
+    if (recapPromoLine) {
+      if (appliedPromo && appliedPromo.valid) {
+        recapPromoLine.textContent = 'Code promo appliqué : -' + appliedPromo.discount_percent + ' %.';
+        recapPromoLine.style.display = '';
+      } else {
+        recapPromoLine.textContent = '';
+        recapPromoLine.style.display = 'none';
+      }
+    }
+
     var totalStr = totalFinal.toFixed(2).replace('.', ',');
     var recapTotal = 'Total : ' + totalStr + ' €';
     if (discount > 0) {
@@ -189,6 +207,73 @@
     }
     document.getElementById('recap-total').textContent = recapTotal;
     recapBlock.style.display = 'block';
+  }
+
+  function applyPromoCode() {
+    var code = inputPromo ? inputPromo.value.trim() : '';
+    if (!code) {
+      appliedPromo = null;
+      if (promoFeedback) {
+        promoFeedback.textContent = '';
+        promoFeedback.className = 'promo-feedback';
+      }
+      updateRecap();
+      return;
+    }
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', API_BASE + '/api/validate-promo?code=' + encodeURIComponent(code), true);
+    xhr.onload = function () {
+      try {
+        var data = JSON.parse(xhr.responseText);
+        if (data.valid && data.discount_percent) {
+          appliedPromo = { valid: true, discount_percent: data.discount_percent };
+          if (promoFeedback) {
+            promoFeedback.textContent = 'Code appliqué : -' + data.discount_percent + ' %.';
+            promoFeedback.className = 'promo-feedback valid';
+          }
+        } else {
+          appliedPromo = null;
+          if (promoFeedback) {
+            promoFeedback.textContent = 'Code invalide ou expiré.';
+            promoFeedback.className = 'promo-feedback invalid';
+          }
+        }
+      } catch (e) {
+        appliedPromo = null;
+        if (promoFeedback) {
+          promoFeedback.textContent = 'Erreur de vérification.';
+          promoFeedback.className = 'promo-feedback invalid';
+        }
+      }
+      updateRecap();
+    };
+    xhr.onerror = function () {
+      appliedPromo = null;
+      if (promoFeedback) {
+        promoFeedback.textContent = 'Erreur de connexion.';
+        promoFeedback.className = 'promo-feedback invalid';
+      }
+      updateRecap();
+    };
+    xhr.send();
+  }
+
+  if (btnApplyPromo && inputPromo) {
+    btnApplyPromo.addEventListener('click', applyPromoCode);
+    inputPromo.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyPromoCode();
+      }
+    });
+    inputPromo.addEventListener('input', function () {
+      appliedPromo = null;
+      if (promoFeedback) {
+        promoFeedback.textContent = '';
+        promoFeedback.className = 'promo-feedback';
+      }
+      updateRecap();
+    });
   }
 
   if (form) {
@@ -249,7 +334,8 @@
         nom: nom,
         email: email,
         telephone: (form.telephone && form.telephone.value) ? form.telephone.value.trim() : '',
-        message: (form.message && form.message.value) ? form.message.value.trim() : ''
+        message: (form.message && form.message.value) ? form.message.value.trim() : '',
+        promo_code: (form.promo_code && form.promo_code.value) ? form.promo_code.value.trim() : ''
       };
 
       var xhr = new XMLHttpRequest();

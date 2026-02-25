@@ -13,7 +13,7 @@
   <header class="header">
     <div class="header-inner">
       <a href="index.html" class="logo-wrap" aria-label="Nuit d'Or Loveroom accueil">
-        <img src="images/logo.jpeg" alt="Nuit d'Or Loveroom" class="logo-img">
+        <img src="images/new.jpeg" alt="Nuit d'Or Loveroom" class="logo-img">
         <span class="logo">Nuit d'Or Loveroom</span>
       </a>
       <div class="header-right">
@@ -68,16 +68,17 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M20 12v10H4V12M2 7h20v5H2V7zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
           </span> Options romantiques (cumulables)</h3>
           <p class="form-block-intro">Ajoutez une ou plusieurs options pour personnaliser votre séjour.</p>
+          <p class="form-block-intro form-block-notice">Toute option ou formule doit être demandée <strong>au moins 48 h à l'avance</strong>, sans quoi nous ne pouvons pas la garantir.</p>
           <div class="packs">
             <label class="pack-option">
               <input type="checkbox" class="option-input" name="opt_petales" value="petales">
               <div class="pack-image">
-                <img src="images/rose.jpeg" alt="Pétales de roses - lit décoré de pétales" loading="lazy">
+                <img src="images/rose.jpeg" alt="Pétales de roses - décoration dans tout l'appartement" loading="lazy">
               </div>
               <span class="pack-content">
                 <span class="titre">Pétales de roses</span>
                 <span class="prix">+ 30 €</span>
-                <span class="desc">Décoration du lit avec pétales de roses pour une ambiance romantique.</span>
+                <span class="desc">Décoration aux pétales de roses dans tout l'appartement pour une ambiance romantique.</span>
               </span>
             </label>
             <label class="pack-option">
@@ -105,12 +106,12 @@
             <label class="pack-option">
               <input type="checkbox" class="option-input" name="opt_formule80" value="formule80">
               <div class="pack-image">
-                <img src="images/formule80.jpeg" alt="Formule 80 - pétales de roses, bouquet personnalisé, ballons et message personnalisé" loading="lazy">
+                <img src="images/formule80.jpeg" alt="Formule Romance - pétales, bouquet, ballons et message personnalisé" loading="lazy">
               </div>
               <span class="pack-content">
-                <span class="titre">Formule 80</span>
+                <span class="titre">Formule Romance</span>
                 <span class="prix">+ 80 €</span>
-                <span class="desc">Pétales de roses, bouquet personnalisé, ballons et phrase au choix en pétales ou en ballons.</span>
+                <span class="desc">Pétales dans tout l'appartement, bouquet personnalisé, ballons et phrase au choix en pétales ou en ballons.</span>
               </span>
             </label>
           </div>
@@ -167,6 +168,14 @@
             <label for="message">Message ou demande particulière</label>
             <textarea id="message" name="message" rows="4" placeholder="Heure d'arrivée souhaitée, occasion spéciale…"></textarea>
           </div>
+          <div class="form-group form-group-promo">
+            <label for="promo">Code promo</label>
+            <div class="promo-row">
+              <input type="text" id="promo" name="promo_code" placeholder="Ex. ROMANCE" autocomplete="off">
+              <button type="button" class="btn-promo" id="btn-apply-promo">Appliquer</button>
+            </div>
+            <p id="promo-feedback" class="promo-feedback" aria-live="polite"></p>
+          </div>
         </div>
 
         <div class="form-block recap-prix" id="recap-prix" style="display: none;">
@@ -175,6 +184,7 @@
           </span> Récapitulatif</h3>
           <p id="recap-dates" class="form-block-intro"></p>
           <p id="recap-pack" class="form-block-intro"></p>
+          <p id="recap-promo" class="form-block-intro recap-promo-line" style="display: none;"></p>
           <p id="recap-total"></p>
         </div>
 
@@ -200,7 +210,7 @@
   <footer class="footer">
     <div class="footer-inner">
       <span class="logo-wrap footer-logo">
-        <img src="images/logo.jpeg" alt="Nuit d'Or Loveroom" class="logo-img footer-logo-img">
+        <img src="images/new.jpeg" alt="Nuit d'Or Loveroom" class="logo-img footer-logo-img">
         <span class="logo">Nuit d'Or Loveroom</span>
       </span>
       <div class="footer-links">
@@ -211,7 +221,7 @@
         Adresse : 17 rue de la Pierre, 01200 Valserhône<br>
         Téléphone : <a href="tel:+33686256843">+33 6 86 25 68 43</a><br>
         Email : <a href="mailto:nuitdoroom@gmail.com">nuitdoroom@gmail.com</a><br>
-        © Nuit d'Or Loveroom — Conciergerie love room
+        © Nuit d'Or Loveroom — Love room
       </p>
     </div>
   </footer>

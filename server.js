@@ -49,6 +49,28 @@ function computeOptionsEuros(optionKeys) {
   return optionKeys.reduce((sum, key) => sum + (OPTION_PRICES[key] || 0), 0);
 }
 
+// Codes promo : variable d’env PROMO_CODES au format "CODE1:10,CODE2:15" (pourcent de remise)
+function getPromoCodesMap() {
+  const raw = process.env.PROMO_CODES || '';
+  const map = new Map();
+  raw.split(',').forEach(part => {
+    const [code, percent] = part.trim().split(':').map(s => s.trim());
+    if (code && percent) {
+      const p = parseInt(percent, 10);
+      if (!isNaN(p) && p > 0 && p < 100) map.set(code.toUpperCase(), p);
+    }
+  });
+  return map;
+}
+
+function validatePromoCode(code) {
+  if (!code || typeof code !== 'string') return null;
+  const normalized = code.trim().toUpperCase();
+  if (!normalized) return null;
+  const p = getPromoCodesMap().get(normalized);
+  return p != null ? { valid: true, discount_percent: p } : { valid: false };
+}
+
 // En production (Vercel), utiliser BASE_URL ou l’URL du déploiement pour que Stripe redirige au bon endroit
 const BASE_URL = process.env.BASE_URL ||
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
@@ -338,8 +360,17 @@ app.delete('/api/admin/blocked-dates/:date', requireAdmin, async (req, res) => {
 });
 
 // Créer une réservation et obtenir l’URL de paiement Stripe
+app.get('/api/validate-promo', (req, res) => {
+  const code = req.query.code;
+  const result = validatePromoCode(code);
+  if (result && result.valid) {
+    return res.json({ valid: true, discount_percent: result.discount_percent });
+  }
+  res.json({ valid: false });
+});
+
 app.post('/api/create-reservation', async (req, res) => {
-  const { date_arrivee, date_depart, options, nom, email, telephone, message } = req.body || {};
+  const { date_arrivee, date_depart, options, nom, email, telephone, message, promo_code } = req.body || {};
   if (!date_arrivee || !date_depart || !nom || !email) {
     return res.status(400).json({ error: 'Champs obligatoires manquants' });
   }
@@ -350,6 +381,10 @@ app.post('/api/create-reservation', async (req, res) => {
   let amountEuros = baseInfo.base + optionsEuros;
   if (baseInfo.nights >= 2) {
     amountEuros = amountEuros * 0.85; // remise 15 % dès 2 nuits
+  }
+  const promo = validatePromoCode(promo_code);
+  if (promo && promo.valid) {
+    amountEuros = amountEuros * (1 - promo.discount_percent / 100);
   }
   const amountCents = Math.round(amountEuros * 100);
 
@@ -401,7 +436,8 @@ app.post('/api/create-reservation', async (req, res) => {
         date_arrivee,
         date_depart,
         options: optionKeys.join(','),
-        amount_cents: String(amountCents)
+        amount_cents: String(amountCents),
+        ...(promo && promo.valid && { promo_code: String(req.body.promo_code || '').trim().toUpperCase() })
       }
     });
 

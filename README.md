@@ -1,6 +1,6 @@
 # Nuit d'Or Loveroom
 
-Site vitrine / boutique en ligne pour la conciergerie love room **Nuit d'Or Loveroom**.
+Site vitrine / boutique en ligne pour la love room **Nuit d'Or Loveroom**.
 
 ## Contenu du site
 

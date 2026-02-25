@@ -658,6 +658,14 @@ img {
   line-height: 1.6;
 }
 
+.form-block-notice {
+  padding: 0.75rem 1rem;
+  background: rgba(255, 215, 0, 0.08);
+  border-left: 3px solid var(--or);
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 1.25rem;
+}
+
 .form-group {
   margin-bottom: 1.25rem;
 }
@@ -699,6 +707,52 @@ img {
 .form-group input::placeholder,
 .form-group textarea::placeholder {
   color: var(--gris);
+}
+
+.promo-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.promo-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-promo {
+  flex-shrink: 0;
+  padding: 0.9rem 1.25rem;
+  background: var(--or);
+  color: var(--noir);
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-promo:hover {
+  filter: brightness(1.1);
+}
+
+.promo-feedback {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  min-height: 1.25rem;
+}
+
+.promo-feedback.valid {
+  color: var(--or);
+}
+
+.promo-feedback.invalid {
+  color: #e57373;
+}
+
+.recap-promo-line {
+  color: var(--or);
 }
 
 /* Bloc récap prix */
