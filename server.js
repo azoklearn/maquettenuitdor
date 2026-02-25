@@ -480,6 +480,11 @@ app.post('/api/create-reservation', async (req, res) => {
       });
     }
 
+    // Utiliser le domaine de la requête (www ou non) pour que la redirection Stripe ramène au bon site
+    const host = req.get('host') || '';
+    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+    const requestOrigin = host ? `${protocol}://${host}` : BASE_URL;
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       payment_method_types: ['card'],
@@ -494,8 +499,8 @@ app.post('/api/create-reservation', async (req, res) => {
         },
         quantity: 1
       }],
-      success_url: `${BASE_URL}/reservation.html?success=1&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${BASE_URL}/reservation.html?cancel=1`,
+      success_url: `${requestOrigin}/reservation.html?success=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${requestOrigin}/reservation.html?cancel=1`,
       customer_email: email,
       metadata: {
         booking_id: String(bookingId),
