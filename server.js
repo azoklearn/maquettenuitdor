@@ -207,10 +207,10 @@ app.get('/api/booked-dates', async (req, res) => {
       }
     }
 
-    // 1) Stripe en priorité : sessions payées = dates bloquées
+    const dateSet = new Set();
+    // 1) Stripe : sessions payées = dates bloquées
     if (stripe) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
-      const dateSet = new Set();
       (sessions.data || []).forEach((s) => {
         const isPaid = (s.payment_status === 'paid') || (s.status === 'complete');
         if (!isPaid) return;
@@ -218,16 +218,17 @@ app.get('/api/booked-dates', async (req, res) => {
         if (!meta.date_arrivee || !meta.date_depart) return;
         addDatesFromRange(dateSet, meta.date_arrivee, meta.date_depart, meta.booking_id);
       });
-      fromBookings = Array.from(dateSet);
     }
-    // 2) Sinon Redis
-    if (fromBookings.length === 0 && blockedStore.useRedis()) {
+    // 2) Redis : fusionner les résas payées (webhook peut avoir ajouté sans que Stripe list les renvoie)
+    if (blockedStore.useRedis()) {
       const list = await blockedStore.getBookingsFromStore();
-      const dateSet = new Set();
-      list.forEach((b) => {
+      (list || []).forEach((b) => {
         if (b.status !== 'paid') return;
+        if (!b.date_arrivee || !b.date_depart) return;
         addDatesFromRange(dateSet, b.date_arrivee, b.date_depart, b.id);
       });
+    }
+    if (dateSet.size > 0) {
       fromBookings = Array.from(dateSet);
     }
     // 3) Sinon SQLite (local)
