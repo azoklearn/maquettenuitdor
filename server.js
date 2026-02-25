@@ -190,7 +190,8 @@ app.get('/api/booked-dates', async (req, res) => {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
       const dateSet = new Set();
       (sessions.data || []).forEach((s) => {
-        if (s.payment_status !== 'paid') return;
+        const isPaid = (s.payment_status === 'paid') || (s.status === 'complete');
+        if (!isPaid) return;
         const meta = s.metadata || {};
         const bookingId = meta.booking_id ? String(meta.booking_id) : null;
         if (bookingId && cancelledSet.has(bookingId)) return;
@@ -262,6 +263,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
           const meta = s.metadata || {};
           const createdIso = s.created ? new Date(s.created * 1000).toISOString() : null;
           const amountCents = Number(meta.amount_cents) || s.amount_total || 0;
+          const isPaid = (s.payment_status === 'paid') || (s.status === 'complete');
           return {
             id: meta.booking_id ? Number(meta.booking_id) : null,
             date_arrivee: meta.date_arrivee || '',
@@ -271,7 +273,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
             email: meta.email || s.customer_email || '',
             telephone: null,
             amount_cents: amountCents,
-            status: s.payment_status === 'paid' ? 'paid' : 'pending',
+            status: isPaid ? 'paid' : 'pending',
             created_at: createdIso,
             stripe_session_id: s.id
           };
@@ -315,7 +317,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         bookings = bookings.map((b) => {
           const s = byBookingId.get(b.id);
           if (!s) return b;
-          const paid = s.payment_status === 'paid';
+          const paid = (s.payment_status === 'paid') || (s.status === 'complete');
           // On renvoie le statut réel Stripe, sans forcément modifier la base
           return {
             ...b,
