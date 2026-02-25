@@ -8,6 +8,7 @@
 
 const BLOCKED_DATES_KEY = 'nuitdor_blocked_dates';
 const CANCELLED_BOOKINGS_KEY = 'nuitdor_cancelled_bookings';
+const BOOKINGS_KEY = 'nuitdor_bookings';
 
 let redis = null;
 try {
@@ -120,6 +121,68 @@ async function addCancelledBookingToStore(id) {
   return false;
 }
 
+async function getBookingsFromStore() {
+  if (!redis) return [];
+  try {
+    const raw = await redis.get(BOOKINGS_KEY);
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        return [];
+      }
+    }
+    return [];
+  } catch (e) {
+    console.error('Redis get bookings:', e);
+    return [];
+  }
+}
+
+async function addBookingToStore(booking) {
+  if (!redis || !booking) return false;
+  try {
+    const list = await getBookingsFromStore();
+    const b = {
+      id: booking.id,
+      date_arrivee: booking.date_arrivee,
+      date_depart: booking.date_depart,
+      pack: booking.pack || '',
+      nom: booking.nom,
+      email: booking.email,
+      telephone: booking.telephone || null,
+      amount_cents: booking.amount_cents,
+      status: 'pending',
+      stripe_session_id: null,
+      created_at: booking.created_at || new Date().toISOString()
+    };
+    list.push(b);
+    await redis.set(BOOKINGS_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    console.error('Redis add booking:', e);
+    return false;
+  }
+}
+
+async function setBookingPaidInStore(bookingId, stripeSessionId) {
+  if (!redis) return false;
+  try {
+    const list = await getBookingsFromStore();
+    const b = list.find((x) => Number(x.id) === Number(bookingId));
+    if (!b) return false;
+    b.status = 'paid';
+    b.stripe_session_id = stripeSessionId;
+    await redis.set(BOOKINGS_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    console.error('Redis set booking paid:', e);
+    return false;
+  }
+}
+
 function useRedis() {
   return !!redis;
 }
@@ -130,5 +193,8 @@ module.exports = {
   removeBlockedDateFromStore,
   getCancelledBookingsFromStore,
   addCancelledBookingToStore,
+  getBookingsFromStore,
+  addBookingToStore,
+  setBookingPaidInStore,
   useRedis
 };

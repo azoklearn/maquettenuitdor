@@ -100,7 +100,7 @@ if (!process.env.VERCEL) {
 }
 
 // Webhook Stripe : body brut pour signature
-app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }), (req, res) => {
+app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
   if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
     return res.status(500).send('Webhook non configuré');
   }
@@ -116,6 +116,9 @@ app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }), (req, 
     const bookingId = session.metadata && session.metadata.booking_id;
     if (bookingId) {
       db.setBookingPaid(Number(bookingId), session.id);
+      if (blockedStore.useRedis()) {
+        await blockedStore.setBookingPaidInStore(Number(bookingId), session.id);
+      }
       let booking = db.getBookingById(Number(bookingId));
       if (!booking && session.metadata && session.metadata.email) {
         booking = {
@@ -165,6 +168,9 @@ app.get('/api/confirm-session', async (req, res) => {
       return res.json({ ok: true, already: true, booking: clientBooking });
     }
     db.setBookingPaid(Number(bookingId), sessionId);
+    if (blockedStore.useRedis()) {
+      await blockedStore.setBookingPaidInStore(Number(bookingId), sessionId);
+    }
     const updated = db.getBookingById(Number(bookingId)) || booking;
     res.json({ ok: true, booking: buildBookingForClient(updated) });
   } catch (err) {
@@ -178,39 +184,47 @@ app.get('/api/booked-dates', async (req, res) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
   try {
     let fromBookings = [];
+    const cancelledIds = blockedStore.useRedis()
+      ? await blockedStore.getCancelledBookingsFromStore()
+      : [];
+    const cancelledSet = new Set((cancelledIds || []).map((x) => String(x)));
 
-    // Avec Stripe configuré : on prend les réservations payées depuis Stripe,
-    // en excluant celles marquées comme « supprimées » dans le store.
-    if (stripe) {
-      const cancelledIds = blockedStore.useRedis()
-        ? await blockedStore.getCancelledBookingsFromStore()
-        : [];
-      const cancelledSet = new Set((cancelledIds || []).map((x) => String(x)));
+    function addDatesFromRange(dateSet, dateArrivee, dateDepart, excludeBookingId) {
+      if (excludeBookingId && cancelledSet.has(String(excludeBookingId))) return;
+      const start = new Date(dateArrivee);
+      const end = new Date(dateDepart);
+      if (isNaN(start) || isNaN(end)) return;
+      const cursor = new Date(start.getTime());
+      cursor.setHours(0, 0, 0, 0);
+      const limit = new Date(end.getTime());
+      limit.setHours(0, 0, 0, 0);
+      while (cursor < limit) {
+        dateSet.add(cursor.toISOString().slice(0, 10));
+        cursor.setDate(cursor.getDate() + 1);
+      }
+    }
 
+    // Avec Redis : on prend les réservations payées depuis le store
+    if (blockedStore.useRedis()) {
+      const list = await blockedStore.getBookingsFromStore();
+      const dateSet = new Set();
+      list.forEach((b) => {
+        if (b.status !== 'paid') return;
+        addDatesFromRange(dateSet, b.date_arrivee, b.date_depart, b.id);
+      });
+      fromBookings = Array.from(dateSet);
+    } else if (stripe) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
       const dateSet = new Set();
       (sessions.data || []).forEach((s) => {
         const isPaid = (s.payment_status === 'paid') || (s.status === 'complete');
         if (!isPaid) return;
         const meta = s.metadata || {};
-        const bookingId = meta.booking_id ? String(meta.booking_id) : null;
-        if (bookingId && cancelledSet.has(bookingId)) return;
         if (!meta.date_arrivee || !meta.date_depart) return;
-        const start = new Date(meta.date_arrivee);
-        const end = new Date(meta.date_depart);
-        if (isNaN(start) || isNaN(end)) return;
-        const cursor = new Date(start.getTime());
-        cursor.setHours(0, 0, 0, 0);
-        const limit = new Date(end.getTime());
-        limit.setHours(0, 0, 0, 0);
-        while (cursor < limit) {
-          dateSet.add(cursor.toISOString().slice(0, 10));
-          cursor.setDate(cursor.getDate() + 1);
-        }
+        addDatesFromRange(dateSet, meta.date_arrivee, meta.date_depart, meta.booking_id);
       });
       fromBookings = Array.from(dateSet);
     } else {
-      // Sans Stripe : on lit la base de données locale
       fromBookings = db.getBookedDates();
     }
 
@@ -242,14 +256,41 @@ function requireAdmin(req, res, next) {
 
 app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
   try {
-    // Avec Stripe configuré, on lit les réservations depuis Stripe (source de vérité)
+    const cancelledIds = blockedStore.useRedis()
+      ? await blockedStore.getCancelledBookingsFromStore()
+      : [];
+    const cancelledSet = new Set((cancelledIds || []).map((x) => String(x)));
+
+    // Avec Redis (Vercel) : source de vérité = Redis (résas enregistrées à la création + mises à jour au paiement)
+    if (blockedStore.useRedis()) {
+      const list = await blockedStore.getBookingsFromStore();
+      const bookings = list
+        .filter((b) => !cancelledSet.has(String(b.id)))
+        .map((b) => ({
+          id: b.id,
+          date_arrivee: b.date_arrivee || '',
+          date_depart: b.date_depart || '',
+          pack: b.pack || '',
+          nom: b.nom || '',
+          email: b.email || '',
+          telephone: b.telephone || null,
+          amount_cents: b.amount_cents != null ? b.amount_cents : 0,
+          status: b.status || 'pending',
+          created_at: b.created_at || null,
+          stripe_session_id: b.stripe_session_id || null
+        }))
+        .sort((a, b) => {
+          if (!a.created_at && !b.created_at) return 0;
+          if (!a.created_at) return 1;
+          if (!b.created_at) return -1;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+      return res.json({ bookings });
+    }
+
+    // Sans Redis : Stripe si configuré, sinon SQLite
     if (stripe) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
-      const cancelledIds = blockedStore.useRedis()
-        ? await blockedStore.getCancelledBookingsFromStore()
-        : [];
-      const cancelledSet = new Set((cancelledIds || []).map((x) => String(x)));
-
       const bookings = (sessions.data || [])
         .filter((s) => s.metadata && s.metadata.date_arrivee && s.metadata.date_depart)
         .map((s) => {
@@ -281,7 +322,6 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
       return res.json({ bookings });
     }
 
-    // Sans Stripe : on lit la base SQLite locale
     const bookings = db.getAllBookings();
     res.json({ bookings });
   } catch (err) {
@@ -294,12 +334,9 @@ app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: 'ID invalide' });
   try {
-    // Sur Vercel avec Stripe, on ne supprime pas la session Stripe elle-même,
-    // mais on marque la réservation comme « annulée » dans le store pour libérer les dates.
-    if (stripe && process.env.VERCEL) {
-      if (blockedStore.useRedis()) {
-        await blockedStore.addCancelledBookingToStore(String(id));
-      }
+    // Avec Redis : on marque la réservation comme « annulée » pour libérer les dates.
+    if (blockedStore.useRedis()) {
+      await blockedStore.addCancelledBookingToStore(String(id));
       return res.json({ ok: true });
     }
 
@@ -442,6 +479,20 @@ app.post('/api/create-reservation', async (req, res) => {
         ...(promo && promo.valid && { promo_code: String(req.body.promo_code || '').trim().toUpperCase() })
       }
     });
+
+    if (blockedStore.useRedis()) {
+      await blockedStore.addBookingToStore({
+        id: bookingId,
+        date_arrivee,
+        date_depart,
+        pack: optionKeys.join(','),
+        nom,
+        email,
+        telephone: telephone || null,
+        amount_cents: amountCents,
+        created_at: new Date().toISOString()
+      });
+    }
 
     res.json({ url: session.url, booking_id: bookingId });
   } catch (err) {
