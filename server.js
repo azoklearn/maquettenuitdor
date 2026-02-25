@@ -334,6 +334,21 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         for (const b of redisList || []) {
           if (cancelledSet.has(String(b.id))) continue;
           if (b.stripe_session_id && stripeSessionIds.has(b.stripe_session_id)) continue;
+          let status = b.status || 'pending';
+          if (b.stripe_session_id && status === 'pending') {
+            try {
+              const session = await stripe.checkout.sessions.retrieve(b.stripe_session_id);
+              const isPaid = (session.payment_status === 'paid') || (session.status === 'complete');
+              if (isPaid) {
+                status = 'paid';
+                const meta = session.metadata || {};
+                await blockedStore.ensurePaidBookingInStore(b.id, b.stripe_session_id, {
+                  ...meta,
+                  created: session.created ? new Date(session.created * 1000).toISOString() : new Date().toISOString()
+                });
+              }
+            } catch (_) { /* session invalide ou erreur Stripe */ }
+          }
           bookings.push({
             id: b.id,
             date_arrivee: b.date_arrivee || '—',
@@ -343,7 +358,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
             email: b.email || '',
             telephone: b.telephone || null,
             amount_cents: b.amount_cents != null ? b.amount_cents : 0,
-            status: b.status || 'pending',
+            status,
             created_at: b.created_at || null,
             stripe_session_id: b.stripe_session_id || null
           });
