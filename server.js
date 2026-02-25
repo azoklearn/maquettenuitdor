@@ -204,18 +204,8 @@ app.get('/api/booked-dates', async (req, res) => {
       }
     }
 
-    // 1) Redis : réservations payées depuis le store
-    if (blockedStore.useRedis()) {
-      const list = await blockedStore.getBookingsFromStore();
-      const dateSet = new Set();
-      list.forEach((b) => {
-        if (b.status !== 'paid') return;
-        addDatesFromRange(dateSet, b.date_arrivee, b.date_depart, b.id);
-      });
-      fromBookings = Array.from(dateSet);
-    }
-    // 2) Fallback Stripe : si aucune date venue de Redis, on prend les sessions payées Stripe
-    if (fromBookings.length === 0 && stripe) {
+    // 1) Stripe en priorité : sessions payées = dates bloquées
+    if (stripe) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
       const dateSet = new Set();
       (sessions.data || []).forEach((s) => {
@@ -227,7 +217,17 @@ app.get('/api/booked-dates', async (req, res) => {
       });
       fromBookings = Array.from(dateSet);
     }
-    // 3) Fallback SQLite (local)
+    // 2) Sinon Redis
+    if (fromBookings.length === 0 && blockedStore.useRedis()) {
+      const list = await blockedStore.getBookingsFromStore();
+      const dateSet = new Set();
+      list.forEach((b) => {
+        if (b.status !== 'paid') return;
+        addDatesFromRange(dateSet, b.date_arrivee, b.date_depart, b.id);
+      });
+      fromBookings = Array.from(dateSet);
+    }
+    // 3) Sinon SQLite (local)
     if (fromBookings.length === 0) {
       fromBookings = db.getBookedDates();
     }
@@ -267,37 +267,11 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
 
     let bookings = [];
 
-    // 1) Redis : si on a des résas en Redis, on les utilise
-    if (blockedStore.useRedis()) {
-      const list = await blockedStore.getBookingsFromStore();
-      bookings = list
-        .filter((b) => !cancelledSet.has(String(b.id)))
-        .map((b) => ({
-          id: b.id,
-          date_arrivee: b.date_arrivee || '',
-          date_depart: b.date_depart || '',
-          pack: b.pack || '',
-          nom: b.nom || '',
-          email: b.email || '',
-          telephone: b.telephone || null,
-          amount_cents: b.amount_cents != null ? b.amount_cents : 0,
-          status: b.status || 'pending',
-          created_at: b.created_at || null,
-          stripe_session_id: b.stripe_session_id || null
-        }))
-        .sort((a, b) => {
-          if (!a.created_at && !b.created_at) return 0;
-          if (!a.created_at) return 1;
-          if (!b.created_at) return -1;
-          return new Date(b.created_at) - new Date(a.created_at);
-        });
-    }
-
-    // 2) Fallback Stripe : si rien en Redis (ou pas de Redis), on lit les sessions Stripe
-    if (bookings.length === 0 && stripe) {
+    // 1) Stripe en priorité : source de vérité pour les résas (sessions Checkout)
+    if (stripe) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
       bookings = (sessions.data || [])
-        .filter((s) => s.metadata && s.metadata.date_arrivee && s.metadata.date_depart)
+        .filter((s) => s.metadata && (s.metadata.booking_id || (s.metadata.date_arrivee && s.metadata.date_depart)))
         .map((s) => {
           const meta = s.metadata || {};
           const createdIso = s.created ? new Date(s.created * 1000).toISOString() : null;
@@ -326,7 +300,33 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         });
     }
 
-    // 3) Fallback SQLite (local sans Redis)
+    // 2) Sinon Redis (Vercel sans Stripe)
+    if (bookings.length === 0 && blockedStore.useRedis()) {
+      const list = await blockedStore.getBookingsFromStore();
+      bookings = list
+        .filter((b) => !cancelledSet.has(String(b.id)))
+        .map((b) => ({
+          id: b.id,
+          date_arrivee: b.date_arrivee || '',
+          date_depart: b.date_depart || '',
+          pack: b.pack || '',
+          nom: b.nom || '',
+          email: b.email || '',
+          telephone: b.telephone || null,
+          amount_cents: b.amount_cents != null ? b.amount_cents : 0,
+          status: b.status || 'pending',
+          created_at: b.created_at || null,
+          stripe_session_id: b.stripe_session_id || null
+        }))
+        .sort((a, b) => {
+          if (!a.created_at && !b.created_at) return 0;
+          if (!a.created_at) return 1;
+          if (!b.created_at) return -1;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+    }
+
+    // 3) Sinon SQLite (local)
     if (bookings.length === 0) {
       bookings = db.getAllBookings();
     }
