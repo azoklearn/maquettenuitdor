@@ -33,6 +33,21 @@ Pour afficher votre logo à la place du texte « Nuit d'Or Loveroom » :
 
 En production : définir BASE_URL et le webhook Stripe (STRIPE_WEBHOOK_SECRET). Tarifs dans .env.
 
+### Configurer le webhook Stripe (recommandé en production)
+
+Pour que les réservations passent en « Payé » même si l’utilisateur ferme la page avant la redirection :
+
+1. Va sur [Stripe Dashboard → Développeurs → Webhooks](https://dashboard.stripe.com/webhooks).
+2. **Ajouter un endpoint** :
+   - **URL** : `https://www.ndloveroom.com/api/webhook/stripe` (ou ton domaine Vercel).
+   - **Événements** : sélectionne `checkout.session.completed`.
+3. Après création, ouvre le webhook et copie le **Signing secret** (commence par `whsec_`).
+4. Dans Vercel (ou `.env`), ajoute la variable :  
+   `STRIPE_WEBHOOK_SECRET=whsec_xxxxx`  
+   puis redéploie.
+
+Sans ce secret, le site utilise la page de succès pour confirmer le paiement ; avec le webhook, Stripe notifie le serveur dès que le paiement est reçu.
+
 ## Déploiement sur Vercel
 
 - Les fichiers statiques (HTML, CSS, JS, images) sont dans **`public/`** ; Vercel les sert via le CDN.

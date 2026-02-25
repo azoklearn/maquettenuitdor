@@ -117,18 +117,14 @@ app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }), async 
     if (bookingId) {
       db.setBookingPaid(Number(bookingId), session.id);
       if (blockedStore.useRedis()) {
-        await blockedStore.setBookingPaidInStore(Number(bookingId), session.id);
-      }
-      let booking = db.getBookingById(Number(bookingId));
-      if (!booking && session.metadata && session.metadata.email) {
-        booking = {
-          email: session.metadata.email,
-          nom: session.metadata.nom || '',
-          date_arrivee: session.metadata.date_arrivee || '',
-          date_depart: session.metadata.date_depart || '',
-          pack: session.metadata.options || '',
-          amount_cents: Number(session.metadata.amount_cents) || session.amount_total || 0
-        };
+        const updated = await blockedStore.setBookingPaidInStore(Number(bookingId), session.id);
+        if (!updated) {
+          const meta = session.metadata || {};
+          await blockedStore.ensurePaidBookingInStore(Number(bookingId), session.id, {
+            ...meta,
+            created: session.created ? new Date(session.created * 1000).toISOString() : new Date().toISOString()
+          });
+        }
       }
     }
   }
