@@ -354,10 +354,13 @@
             alert('Erreur de réponse du serveur.');
             return;
           }
+          if (data._debug) console.log('Réservation créée — domaine de retour:', data._debug.success_url_base);
           if (data.url) {
             window.location.href = data.url;
             return;
           }
+          console.error('Réponse create-reservation sans url:', data);
+          alert('Le serveur n\'a pas renvoyé l\'URL de paiement. Ouvrez la console (F12) et regardez la réponse.');
         }
         if (xhr.status === 503) {
           var msg = 'Paiement non configuré côté serveur. Réservez par téléphone ou email en attendant.';
@@ -373,7 +376,10 @@
           var r = JSON.parse(xhr.responseText);
           if (r.error) errMsg = r.error;
           if (r.detail) errMsg += '\n\nDétail : ' + r.detail;
-        } catch (e) {}
+          console.error('Erreur create-reservation', xhr.status, r);
+        } catch (e) {
+          console.error('Erreur create-reservation', xhr.status, xhr.responseText);
+        }
         alert(errMsg);
       };
       xhr.onerror = function () {

@@ -528,7 +528,11 @@ app.post('/api/create-reservation', async (req, res) => {
       });
     }
 
-    res.json({ url: session.url, booking_id: bookingId });
+    res.json({
+      url: session.url,
+      booking_id: bookingId,
+      _debug: { host: req.get('host'), success_url_base: requestOrigin }
+    });
   } catch (err) {
     console.error('Create reservation error:', err);
     const message = err.message || 'Erreur inconnue';
