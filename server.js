@@ -169,7 +169,14 @@ app.get('/api/confirm-session', async (req, res) => {
     }
     db.setBookingPaid(Number(bookingId), sessionId);
     if (blockedStore.useRedis()) {
-      await blockedStore.setBookingPaidInStore(Number(bookingId), sessionId);
+      const updatedInRedis = await blockedStore.setBookingPaidInStore(Number(bookingId), sessionId);
+      if (!updatedInRedis) {
+        const meta = session.metadata || {};
+        await blockedStore.ensurePaidBookingInStore(Number(bookingId), sessionId, {
+          ...meta,
+          created: session.created ? new Date(session.created * 1000).toISOString() : new Date().toISOString()
+        });
+      }
     }
     const updated = db.getBookingById(Number(bookingId)) || booking;
     res.json({ ok: true, booking: buildBookingForClient(updated) });
@@ -269,8 +276,19 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
 
     // 1) Stripe en priorité : source de vérité pour les résas (sessions Checkout)
     if (stripe) {
-      const sessions = await stripe.checkout.sessions.list({ limit: 100 });
-      const stripeBookings = (sessions.data || [])
+      let allSessions = [];
+      let hasMore = true;
+      let lastId = null;
+      while (hasMore) {
+        const opts = { limit: 100 };
+        if (lastId) opts.starting_after = lastId;
+        const chunk = await stripe.checkout.sessions.list(opts);
+        allSessions = allSessions.concat(chunk.data || []);
+        hasMore = !!chunk.has_more && (chunk.data || []).length > 0;
+        if ((chunk.data || []).length > 0) lastId = chunk.data[chunk.data.length - 1].id;
+        if (allSessions.length >= 500) break;
+      }
+      const stripeBookings = (allSessions || [])
         .filter((s) => s.metadata && (s.metadata.booking_id || (s.metadata.date_arrivee && s.metadata.date_depart)))
         .map((s) => {
           const meta = s.metadata || {};
@@ -299,8 +317,19 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         date_depart: b.date_depart || '—'
       }));
 
-      // Fusionner Redis : afficher les résas enregistrées en Redis mais absentes de la liste Stripe (ex. nouvelle résa pas encore visible)
       if (blockedStore.useRedis()) {
+        for (const s of allSessions || []) {
+          const isPaid = (s.payment_status === 'paid') || (s.status === 'complete');
+          const meta = s.metadata || {};
+          const bid = meta.booking_id;
+          if (isPaid && bid && (meta.date_arrivee || meta.email)) {
+            await blockedStore.ensurePaidBookingInStore(Number(bid), s.id, {
+              ...meta,
+              created: s.created ? new Date(s.created * 1000).toISOString() : new Date().toISOString()
+            });
+          }
+        }
+        // Fusionner Redis : afficher les résas enregistrées en Redis mais absentes de la liste Stripe
         const redisList = await blockedStore.getBookingsFromStore();
         for (const b of redisList || []) {
           if (cancelledSet.has(String(b.id))) continue;

@@ -183,6 +183,44 @@ async function setBookingPaidInStore(bookingId, stripeSessionId) {
   }
 }
 
+/** Enregistre ou met à jour la résa en Redis après paiement (au cas où elle n'a pas été ajoutée à la création). */
+async function ensurePaidBookingInStore(bookingId, stripeSessionId, metadata) {
+  if (!redis || !metadata) return false;
+  try {
+    const list = await getBookingsFromStore();
+    const existing = list.find((x) => Number(x.id) === Number(bookingId) || x.stripe_session_id === stripeSessionId);
+    if (existing) {
+      existing.status = 'paid';
+      existing.stripe_session_id = stripeSessionId;
+      if (!existing.date_arrivee && metadata.date_arrivee) existing.date_arrivee = metadata.date_arrivee;
+      if (!existing.date_depart && metadata.date_depart) existing.date_depart = metadata.date_depart;
+      if (!existing.nom && metadata.nom) existing.nom = metadata.nom;
+      if (!existing.email && metadata.email) existing.email = metadata.email;
+      await redis.set(BOOKINGS_KEY, JSON.stringify(list));
+      return true;
+    }
+    const created = metadata.created ? metadata.created : new Date().toISOString();
+    list.push({
+      id: Number(bookingId),
+      date_arrivee: metadata.date_arrivee || '',
+      date_depart: metadata.date_depart || '',
+      pack: metadata.options || '',
+      nom: metadata.nom || '',
+      email: metadata.email || '',
+      telephone: null,
+      amount_cents: Number(metadata.amount_cents) || 0,
+      status: 'paid',
+      stripe_session_id: stripeSessionId,
+      created_at: created
+    });
+    await redis.set(BOOKINGS_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    console.error('Redis ensure paid booking:', e);
+    return false;
+  }
+}
+
 function useRedis() {
   return !!redis;
 }
@@ -196,5 +234,6 @@ module.exports = {
   getBookingsFromStore,
   addBookingToStore,
   setBookingPaidInStore,
+  ensurePaidBookingInStore,
   useRedis
 };
