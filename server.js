@@ -291,8 +291,44 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
       }
     }
 
-    // En local (SQLite) ou sans Stripe : on lit la base
-    const bookings = db.getAllBookings();
+    // En local (SQLite) ou sans Vercel :
+    // - on lit la base
+    // - si Stripe est configuré, on surclasse le statut avec l'info de paiement réelle
+    let bookings = db.getAllBookings();
+
+    if (stripe && !process.env.VERCEL) {
+      try {
+        const sessions = await stripe.checkout.sessions.list({ limit: 100 });
+        const byBookingId = new Map();
+        (sessions.data || []).forEach((s) => {
+          const meta = s.metadata || {};
+          if (!meta.booking_id) return;
+          const idNum = Number(meta.booking_id);
+          if (!idNum) return;
+          // On ne garde que la session la plus récente pour ce booking_id
+          const existing = byBookingId.get(idNum);
+          if (!existing || (s.created && (!existing.created || s.created > existing.created))) {
+            byBookingId.set(idNum, s);
+          }
+        });
+
+        bookings = bookings.map((b) => {
+          const s = byBookingId.get(b.id);
+          if (!s) return b;
+          const paid = s.payment_status === 'paid';
+          // On renvoie le statut réel Stripe, sans forcément modifier la base
+          return {
+            ...b,
+            status: paid ? 'paid' : (b.status || 'pending'),
+            amount_cents: Number(s.metadata?.amount_cents) || s.amount_total || b.amount_cents || 0,
+            stripe_session_id: s.id
+          };
+        });
+      } catch (err) {
+        console.error('Erreur récupération sessions Stripe pour admin local:', err);
+      }
+    }
+
     res.json({ bookings });
   } catch (err) {
     console.error(err);
