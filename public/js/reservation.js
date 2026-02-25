@@ -403,11 +403,16 @@
       var xhr = new XMLHttpRequest();
       xhr.open('GET', API_BASE + '/api/confirm-session?session_id=' + encodeURIComponent(sessionId), true);
       xhr.onload = function () {
-        window.history.replaceState({}, document.title, window.location.pathname);
         if (form) form.style.display = 'none';
         if (recapSuccess) recapSuccess.style.display = 'block';
+        if (xhr.status !== 200) {
+          console.error('confirm-session a échoué', xhr.status, xhr.responseText);
+          alert('Paiement reçu mais la confirmation a échoué. Votre réservation est bien enregistrée chez Stripe. Réessayez de rafraîchir l\'admin.');
+          return;
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
         alert('Merci ! Votre réservation est confirmée. Consultez le récapitulatif ci-dessous.');
-        if (xhr.status === 200 && recapSuccess) {
+        if (recapSuccess) {
           try {
             var data = JSON.parse(xhr.responseText);
             if (data.booking) {
