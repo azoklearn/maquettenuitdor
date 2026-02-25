@@ -270,7 +270,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
     // 1) Stripe en priorité : source de vérité pour les résas (sessions Checkout)
     if (stripe) {
       const sessions = await stripe.checkout.sessions.list({ limit: 100 });
-      bookings = (sessions.data || [])
+      const stripeBookings = (sessions.data || [])
         .filter((s) => s.metadata && (s.metadata.booking_id || (s.metadata.date_arrivee && s.metadata.date_depart)))
         .map((s) => {
           const meta = s.metadata || {};
@@ -291,18 +291,42 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
             stripe_session_id: s.id
           };
         })
-        .filter((b) => !b.id || !cancelledSet.has(String(b.id)))
-        .map((b) => ({
-          ...b,
-          date_arrivee: b.date_arrivee || '—',
-          date_depart: b.date_depart || '—'
-        }))
-        .sort((a, b) => {
-          if (!a.created_at && !b.created_at) return 0;
-          if (!a.created_at) return 1;
-          if (!b.created_at) return -1;
-          return new Date(b.created_at) - new Date(a.created_at);
-        });
+        .filter((b) => !b.id || !cancelledSet.has(String(b.id)));
+      const stripeSessionIds = new Set(stripeBookings.map((b) => b.stripe_session_id).filter(Boolean));
+      bookings = stripeBookings.map((b) => ({
+        ...b,
+        date_arrivee: b.date_arrivee || '—',
+        date_depart: b.date_depart || '—'
+      }));
+
+      // Fusionner Redis : afficher les résas enregistrées en Redis mais absentes de la liste Stripe (ex. nouvelle résa pas encore visible)
+      if (blockedStore.useRedis()) {
+        const redisList = await blockedStore.getBookingsFromStore();
+        for (const b of redisList || []) {
+          if (cancelledSet.has(String(b.id))) continue;
+          if (b.stripe_session_id && stripeSessionIds.has(b.stripe_session_id)) continue;
+          bookings.push({
+            id: b.id,
+            date_arrivee: b.date_arrivee || '—',
+            date_depart: b.date_depart || '—',
+            pack: b.pack || '',
+            nom: b.nom || '',
+            email: b.email || '',
+            telephone: b.telephone || null,
+            amount_cents: b.amount_cents != null ? b.amount_cents : 0,
+            status: b.status || 'pending',
+            created_at: b.created_at || null,
+            stripe_session_id: b.stripe_session_id || null
+          });
+        }
+      }
+
+      bookings.sort((a, b) => {
+        if (!a.created_at && !b.created_at) return 0;
+        if (!a.created_at) return 1;
+        if (!b.created_at) return -1;
+        return new Date(b.created_at) - new Date(a.created_at);
+      });
     }
 
     // 2) Sinon Redis (Vercel sans Stripe)
