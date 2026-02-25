@@ -279,8 +279,8 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
           const isPaid = (s.payment_status === 'paid') || (s.status === 'complete');
           return {
             id: meta.booking_id ? Number(meta.booking_id) : null,
-            date_arrivee: meta.date_arrivee || '',
-            date_depart: meta.date_depart || '',
+            date_arrivee: meta.date_arrivee || null,
+            date_depart: meta.date_depart || null,
             pack: meta.options || '',
             nom: meta.nom || '',
             email: meta.email || s.customer_email || '',
@@ -292,6 +292,11 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
           };
         })
         .filter((b) => !b.id || !cancelledSet.has(String(b.id)))
+        .map((b) => ({
+          ...b,
+          date_arrivee: b.date_arrivee || '—',
+          date_depart: b.date_depart || '—'
+        }))
         .sort((a, b) => {
           if (!a.created_at && !b.created_at) return 0;
           if (!a.created_at) return 1;
@@ -307,8 +312,8 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         .filter((b) => !cancelledSet.has(String(b.id)))
         .map((b) => ({
           id: b.id,
-          date_arrivee: b.date_arrivee || '',
-          date_depart: b.date_depart || '',
+          date_arrivee: b.date_arrivee || '—',
+          date_depart: b.date_depart || '—',
           pack: b.pack || '',
           nom: b.nom || '',
           email: b.email || '',
