@@ -12,6 +12,7 @@
   var recapPromoLine = document.getElementById('recap-promo');
   var fpArrivee, fpDepart;
   var appliedPromo = null; // { valid: true, discount_percent: 10 } ou null
+  var disabledSetGlobal = new Set(); // dates (YYYY-MM-DD) déjà réservées / bloquées
 
   var API_BASE = '';
 
@@ -53,17 +54,27 @@
     return set;
   }
 
+  // Vérifie si l'intervalle [d1, d2) recouvre au moins une date bloquée
+  function rangeHasDisabled(d1, d2) {
+    if (!d1 || !d2 || !disabledSetGlobal || disabledSetGlobal.size === 0) return false;
+    var cursor = new Date(d1.getTime());
+    cursor.setHours(0, 0, 0, 0);
+    var end = new Date(d2.getTime());
+    end.setHours(0, 0, 0, 0);
+    while (cursor < end) {
+      if (disabledSetGlobal.has(toYMD(cursor))) return true;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return false;
+  }
+
   function initCalendars(disabledDates) {
     var today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    var disabledSet = buildDisabledSet(disabledDates);
-    var disableRule = [
-      function (date) {
-        return disabledSet.has(toYMD(date));
-      }
-    ];
+    disabledSetGlobal = buildDisabledSet(disabledDates);
 
+    // Calendrier d'arrivée : on ne peut jamais commencer un séjour un jour bloqué
     fpArrivee = flatpickr(inputArrivee, {
       locale: 'fr',
       dateFormat: 'd/m/Y',
@@ -71,7 +82,11 @@
       minDate: today,
       allowInput: false,
       disableMobile: true,
-      disable: disableRule,
+      disable: [
+        function (date) {
+          return disabledSetGlobal.has(toYMD(date));
+        }
+      ],
       onChange: function (selectedDates) {
         if (selectedDates[0] && fpDepart) {
           fpDepart.set('minDate', selectedDates[0]);
@@ -83,13 +98,29 @@
       }
     });
 
+    // Calendrier de départ :
+    // - si aucune arrivée choisie, on bloque comme le calendrier d'arrivée
+    // - sinon, on bloque toute date de sortie dont l'intervalle [arrivée, départ) recouvre une date bloquée
     fpDepart = flatpickr(inputDepart, {
       locale: 'fr',
       dateFormat: 'd/m/Y',
       minDate: today,
       allowInput: false,
       disableMobile: true,
-      disable: disableRule,
+      disable: [
+        function (date) {
+          if (!fpArrivee || !fpArrivee.selectedDates[0]) {
+            return disabledSetGlobal.has(toYMD(date));
+          }
+          var start = fpArrivee.selectedDates[0];
+          if (!start) return disabledSetGlobal.has(toYMD(date));
+          // Empêche de choisir une date de départ avant ou égale à l'arrivée
+          if (date <= start) return true;
+          // Empêche toute plage qui recouvre un jour bloqué (ex. si le 28 est bloqué,
+          // on refuse 27→1, 28→29, etc., mais on autorise 27→28).
+          return rangeHasDisabled(start, date);
+        }
+      ],
       onChange: function () { updateRecap(); }
     });
   }
@@ -310,6 +341,10 @@
       var d2 = fpDepart && fpDepart.selectedDates[0];
       if (!d1 || !d2) {
         alert('Veuillez choisir les dates d\'arrivée et de départ.');
+        return;
+      }
+      if (rangeHasDisabled(d1, d2)) {
+        alert('Les dates choisies recouvrent un jour déjà réservé ou bloqué. Merci de choisir un autre créneau.');
         return;
       }
       var dateArrivee = d1.toISOString().slice(0, 10);
