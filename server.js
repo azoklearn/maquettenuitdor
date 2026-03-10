@@ -520,6 +520,14 @@ app.post('/api/create-reservation', async (req, res) => {
     return res.status(400).json({ error: 'Champs obligatoires manquants' });
   }
 
+  // Mode "en attente de paiement" : on désactive volontairement le paiement en ligne
+  if (process.env.PAYMENT_DISABLED === 'true') {
+    return res.status(503).json({
+      error: 'Paiement temporairement indisponible',
+      message: 'Le site est actuellement en mode "en attente de paiement". Merci de nous contacter directement pour réserver.'
+    });
+  }
+
   const optionKeys = Array.isArray(options) ? options : [];
   const baseInfo = computeBaseAmountEuros(date_arrivee, date_depart);
   const optionsEuros = computeOptionsEuros(optionKeys);

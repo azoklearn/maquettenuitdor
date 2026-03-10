@@ -49,6 +49,7 @@
               <tr>
                 <th>Dates</th>
                 <th>Client</th>
+                <th>Options</th>
                 <th>Total</th>
                 <th>Statut</th>
                 <th></th>
@@ -159,6 +160,16 @@
         emptyMsg.style.display = 'none';
         tableWrap.style.display = 'block';
         tbody.innerHTML = '';
+
+        var OPTION_LABELS = {
+          petales: 'Pétales de roses',
+          bouquet: 'Bouquet personnalisé',
+          champagne: 'Champagne',
+          formule80: 'Formule Romance',
+          arrivee15: 'Arrivée anticipée (15h)',
+          depart14: 'Départ tardif (14h)'
+        };
+
         bookings.forEach(function (b) {
           var tr = document.createElement('tr');
           var datesStr = (b.date_arrivee || '') + ' → ' + (b.date_depart || '');
@@ -166,9 +177,22 @@
           var isPaid = (b.status === 'paid') || !!b.stripe_session_id;
           var statusClass = isPaid ? 'paid' : (b.status || 'pending');
           var statusLabel = isPaid ? 'Payé' : 'En attente';
+
+          var packStr = '';
+          if (b.pack) {
+            var keys = String(b.pack).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+            if (keys.length) {
+              packStr = keys.map(function (k) { return OPTION_LABELS[k] || k; }).join(', ');
+            }
+          }
+          if (!packStr) {
+            packStr = 'Aucune option';
+          }
+
           tr.innerHTML =
             '<td>' + escapeHtml(datesStr) + '</td>' +
             '<td><strong>' + escapeHtml(b.nom || '') + '</strong><br><small>' + escapeHtml(b.email || '') + '</small></td>' +
+            '<td>' + escapeHtml(packStr) + '</td>' +
             '<td>' + totalEuros + '</td>' +
             '<td><span class="admin-status admin-status-' + statusClass + '">' + escapeHtml(statusLabel) + '</span></td>' +
             '<td><button type="button" class="admin-btn admin-btn-danger" data-id="' + b.id + '">Supprimer</button></td>';

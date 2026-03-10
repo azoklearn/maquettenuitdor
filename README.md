@@ -33,6 +33,16 @@ Pour afficher votre logo à la place du texte « Nuit d'Or Loveroom » :
 
 En production : définir BASE_URL et le webhook Stripe (STRIPE_WEBHOOK_SECRET). Tarifs dans .env.
 
+### Mettre le site en « attente de paiement »
+
+Si tu veux désactiver temporairement le paiement en ligne (par exemple pour un problème Stripe ou le temps de revoir les tarifs) :
+
+1. Sur Vercel, ajoute une variable d’environnement :  
+   `PAYMENT_DISABLED=true`
+2. Redéploie.
+
+Dans ce mode, le formulaire affiche un message indiquant que le site est en mode « en attente de paiement » et ne redirige plus vers Stripe. Les clients doivent alors te contacter directement pour réserver.
+
 ### Configurer le webhook Stripe (recommandé en production)
 
 Pour que les réservations passent en « Payé » même si l’utilisateur ferme la page avant la redirection :
