@@ -285,8 +285,14 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         if ((chunk.data || []).length > 0) lastId = chunk.data[chunk.data.length - 1].id;
         if (allSessions.length >= 500) break;
       }
+      res.locals._stripeSessionsCount = allSessions.length;
+      // Inclure toutes les sessions avec metadata (notre formulaire) OU toute session payée (au cas où metadata manquante)
       const stripeBookings = (allSessions || [])
-        .filter((s) => s.metadata && (s.metadata.booking_id || (s.metadata.date_arrivee && s.metadata.date_depart)))
+        .filter((s) => {
+          const hasMeta = s.metadata && (s.metadata.booking_id || (s.metadata.date_arrivee && s.metadata.date_depart));
+          const isPaid = (s.payment_status === 'paid') || (s.status === 'complete');
+          return hasMeta || isPaid;
+        })
         .map((s) => {
           const meta = s.metadata || {};
           const createdIso = s.created ? new Date(s.created * 1000).toISOString() : null;
@@ -408,7 +414,11 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
       date_depart: b.date_depart || '—'
     }));
 
-    res.json({ bookings });
+    const out = { bookings };
+    if (req.query.debug === '1') {
+      out._debug = { stripe_sessions_count: stripe ? (res.locals._stripeSessionsCount ?? null) : null, redis_used: blockedStore.useRedis() };
+    }
+    res.json(out);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -491,10 +501,13 @@ app.get('/api/stripe-check', async (req, res) => {
   }
   try {
     const sessions = await stripe.checkout.sessions.list({ limit: 10 });
+    const key = process.env.STRIPE_SECRET_KEY || '';
+    const keyMode = key.startsWith('sk_live_') ? 'live' : key.startsWith('sk_test_') ? 'test' : 'inconnu';
     return res.json({
       stripe_ok: true,
+      key_mode: keyMode,
       recent_sessions_count: (sessions.data || []).length,
-      message: 'Compare avec ton dashboard Stripe (Paiements / Checkout). Si 0 ici mais des paiements chez toi, la clé Vercel pointe vers un autre compte.'
+      message: 'Compare avec ton dashboard Stripe (Paiements / Checkout). Si 0 ici mais des paiements chez toi, vérifie que le mode (test/live) du dashboard correspond à key_mode ci-dessus et que STRIPE_SECRET_KEY sur Vercel est la bonne clé.'
     });
   } catch (err) {
     return res.json({

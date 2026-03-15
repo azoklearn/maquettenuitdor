@@ -44,6 +44,13 @@
     return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
   }
 
+  // Parse "YYYY-MM-DD" en date locale (évite le décalage d'un jour selon le fuseau horaire)
+  function parseLocalDate(ymd) {
+    if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(String(ymd).trim())) return null;
+    var parts = String(ymd).trim().split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]);
+  }
+
   function buildDisabledSet(dates) {
     var set = new Set();
     if (!dates || !dates.length) return set;
@@ -453,8 +460,8 @@
             if (data.booking) {
               var b = data.booking;
               document.getElementById('recap-success-nom').textContent = b.nom || '';
-              var d1 = b.date_arrivee ? new Date(b.date_arrivee) : null;
-              var d2 = b.date_depart ? new Date(b.date_depart) : null;
+              var d1 = b.date_arrivee ? parseLocalDate(b.date_arrivee) : null;
+              var d2 = b.date_depart ? parseLocalDate(b.date_depart) : null;
               var datesStr = (d1 && d2) ? 'Du ' + d1.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' au ' + d2.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : (b.date_arrivee + ' → ' + b.date_depart);
               document.getElementById('recap-success-dates').textContent = datesStr;
               var optKeys = (b.options || '').split(',').filter(Boolean);
