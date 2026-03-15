@@ -416,7 +416,16 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
 
     const out = { bookings };
     if (req.query.debug === '1') {
-      out._debug = { stripe_sessions_count: stripe ? (res.locals._stripeSessionsCount ?? null) : null, redis_used: blockedStore.useRedis() };
+      let redisCount = null;
+      if (blockedStore.useRedis()) {
+        try {
+          const list = await blockedStore.getBookingsFromStore();
+          redisCount = (list || []).length;
+        } catch (e) {
+          redisCount = 'error: ' + (e.message || '');
+        }
+      }
+      out._debug = { stripe_sessions_count: stripe ? (res.locals._stripeSessionsCount ?? null) : null, redis_used: blockedStore.useRedis(), redis_bookings_count: redisCount };
     }
     res.json(out);
   } catch (err) {

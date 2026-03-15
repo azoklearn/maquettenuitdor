@@ -145,6 +145,8 @@ async function addBookingToStore(booking) {
   if (!redis || !booking) return false;
   try {
     const list = await getBookingsFromStore();
+    const existing = list.find((x) => Number(x.id) === Number(booking.id));
+    if (existing && existing.status === 'paid') return true; // Ne pas écraser une résa déjà payée (webhook peut avoir écrit avant)
     const b = {
       id: booking.id,
       date_arrivee: booking.date_arrivee,
@@ -155,10 +157,15 @@ async function addBookingToStore(booking) {
       telephone: booking.telephone || null,
       amount_cents: booking.amount_cents,
       status: 'pending',
-      stripe_session_id: null,
+      stripe_session_id: existing ? existing.stripe_session_id : null,
       created_at: booking.created_at || new Date().toISOString()
     };
-    list.push(b);
+    if (existing) {
+      const idx = list.indexOf(existing);
+      list[idx] = b;
+    } else {
+      list.push(b);
+    }
     await redis.set(BOOKINGS_KEY, JSON.stringify(list));
     return true;
   } catch (e) {

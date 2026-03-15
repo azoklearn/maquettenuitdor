@@ -63,7 +63,20 @@ Sans ce secret, le site utilise la page de succès pour confirmer le paiement ; 
 - Les fichiers statiques (HTML, CSS, JS, images) sont dans **`public/`** ; Vercel les sert via le CDN.
 - L’app Express (`server.js`) est exportée et sert uniquement les routes **`/api/*`**.
 - En projet Vercel, définir les variables d’environnement : `STRIPE_SECRET_KEY`, `BASE_URL` (ex. `https://ton-projet.vercel.app`), `RESEND_API_KEY`, `NOTIFY_EMAIL`, et en production le webhook Stripe avec `STRIPE_WEBHOOK_SECRET`.
-- **Base de données** : sur Vercel, le module natif SQLite est désactivé pour éviter les crashs ; un stockage **en mémoire** est utilisé (données perdues à chaque cold start). Les créneaux « déjà réservés » ne sont donc pas bloqués entre invocations. L’email de confirmation après paiement reste envoyé grâce aux métadonnées Stripe. Pour une vraie persistance sur Vercel, prévoir une base externe (Vercel Postgres, Turso, etc.).
+- **Base de données** : sur Vercel, le module natif SQLite est désactivé ; un stockage **en mémoire** est utilisé (données perdues à chaque cold start). **Pour que les réservations et les dates bloquées restent après un rafraîchissement**, il faut configurer **Redis (Upstash)** — voir ci‑dessous.
+
+### Persistance des réservations sur Vercel (Redis Upstash)
+
+Sans Redis, après un paiement tout semble fonctionner (résa visible, dates bloquées), mais **au prochain rafraîchissement** les résas disparaissent et les dates redeviennent libres, car les données ne sont pas sauvegardées.
+
+1. Crée un compte sur [Upstash](https://upstash.com) et une base **Redis** (gratuit en petit usage).
+2. Dans la console Upstash, récupère **REST URL** et **REST Token**.
+3. Sur Vercel → ton projet → **Settings → Environment Variables**, ajoute :
+   - `KV_REST_API_URL` = l’URL REST (ou `UPSTASH_REDIS_REST_URL`)
+   - `KV_REST_API_TOKEN` = le token (ou `UPSTASH_REDIS_REST_TOKEN`)
+4. Redéploie.
+
+Après ça, les réservations et les dates bloquées sont enregistrées dans Redis et restent après rafraîchissement. Tu peux vérifier en appelant `/api/admin/bookings?debug=1` (avec le mot de passe admin) : si `_debug.redis_used` est `true`, Redis est bien utilisé.
 
 ## Structure des fichiers
 

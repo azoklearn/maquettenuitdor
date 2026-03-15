@@ -354,8 +354,8 @@
         alert('Les dates choisies recouvrent un jour déjà réservé ou bloqué. Merci de choisir un autre créneau.');
         return;
       }
-      var dateArrivee = d1.toISOString().slice(0, 10);
-      var dateDepart = d2.toISOString().slice(0, 10);
+      var dateArrivee = toYMD(d1);
+      var dateDepart = toYMD(d2);
       var optionKeys = getSelectedOptionKeys();
       var nom = form.nom && form.nom.value ? form.nom.value.trim() : '';
       var email = form.email && form.email.value ? form.email.value.trim() : '';
