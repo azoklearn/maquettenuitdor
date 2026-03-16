@@ -271,7 +271,34 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
 
     let bookings = [];
 
-    // 1) Stripe en priorité : source de vérité pour les résas (sessions Checkout)
+    // Si Redis est disponible, on le considère comme source principale pour l'admin
+    // (plus fiable que Stripe seul, surtout en mode serverless).
+    if (blockedStore.useRedis()) {
+      const list = await blockedStore.getBookingsFromStore();
+      bookings = (list || [])
+        .filter((b) => !cancelledSet.has(String(b.id)))
+        .map((b) => ({
+          id: b.id,
+          date_arrivee: b.date_arrivee || '—',
+          date_depart: b.date_depart || '—',
+          pack: b.pack || '',
+          nom: b.nom || '',
+          email: b.email || '',
+          telephone: b.telephone || null,
+          amount_cents: b.amount_cents != null ? b.amount_cents : 0,
+          status: b.status || 'pending',
+          created_at: b.created_at || null,
+          stripe_session_id: b.stripe_session_id || null
+        }))
+        .sort((a, b) => {
+          if (!a.created_at && !b.created_at) return 0;
+          if (!a.created_at) return 1;
+          if (!b.created_at) return -1;
+          return new Date(b.created_at) - new Date(a.created_at);
+        });
+    }
+
+    // 1) Stripe (complément / debug) : on fusionne Stripe par-dessus Redis si besoin
     if (stripe) {
       let allSessions = [];
       let hasMore = true;
