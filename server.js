@@ -8,6 +8,26 @@ const blockedStore = require('./server/blocked-dates-store');
 const app = express();
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
+/** Sessions Checkout Stripe avec pagination (évite de ne voir que les 100 plus récentes). */
+async function listStripeCheckoutSessions(maxTotal = 500) {
+  if (!stripe) return [];
+  const cap = Math.min(Math.max(1, maxTotal), 1000);
+  let allSessions = [];
+  let hasMore = true;
+  let lastId = null;
+  while (hasMore && allSessions.length < cap) {
+    const opts = { limit: 100 };
+    if (lastId) opts.starting_after = lastId;
+    const chunk = await stripe.checkout.sessions.list(opts);
+    const data = chunk.data || [];
+    allSessions = allSessions.concat(data);
+    hasMore = !!chunk.has_more && data.length > 0;
+    if (data.length > 0) lastId = data[data.length - 1].id;
+    if (allSessions.length >= cap) break;
+  }
+  return allSessions.slice(0, cap);
+}
+
 const WEEK_PRICE = 155;      // nuit en semaine (lundi-jeudi, + dimanche)
 const WEEKEND_PRICE = 205;   // nuit de week-end (vendredi-samedi)
 
@@ -208,16 +228,20 @@ app.get('/api/booked-dates', async (req, res) => {
     }
 
     const dateSet = new Set();
-    // 1) Stripe : sessions payées = dates bloquées
+    // 1) Stripe : sessions payées = dates bloquées (même pagination que l’admin, pas seulement 100)
     if (stripe) {
-      const sessions = await stripe.checkout.sessions.list({ limit: 100 });
-      (sessions.data || []).forEach((s) => {
-        const isPaid = (s.payment_status === 'paid') || (s.status === 'complete');
-        if (!isPaid) return;
-        const meta = s.metadata || {};
-        if (!meta.date_arrivee || !meta.date_depart) return;
-        addDatesFromRange(dateSet, meta.date_arrivee, meta.date_depart, meta.booking_id);
-      });
+      try {
+        const sessions = await listStripeCheckoutSessions(500);
+        sessions.forEach((s) => {
+          const isPaid = (s.payment_status === 'paid') || (s.status === 'complete');
+          if (!isPaid) return;
+          const meta = s.metadata || {};
+          if (!meta.date_arrivee || !meta.date_depart) return;
+          addDatesFromRange(dateSet, meta.date_arrivee, meta.date_depart, meta.booking_id);
+        });
+      } catch (e) {
+        console.error('Stripe booked-dates:', e.message || e);
+      }
     }
     // 2) Redis : fusionner les résas payées (webhook peut avoir ajouté sans que Stripe list les renvoie)
     if (blockedStore.useRedis()) {
@@ -298,20 +322,12 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         });
     }
 
+    const redisBookingsSnapshot = blockedStore.useRedis() ? bookings.slice() : null;
+
     // 1) Stripe (complément / debug) : on fusionne Stripe par-dessus Redis si besoin
     if (stripe) {
-      let allSessions = [];
-      let hasMore = true;
-      let lastId = null;
-      while (hasMore) {
-        const opts = { limit: 100 };
-        if (lastId) opts.starting_after = lastId;
-        const chunk = await stripe.checkout.sessions.list(opts);
-        allSessions = allSessions.concat(chunk.data || []);
-        hasMore = !!chunk.has_more && (chunk.data || []).length > 0;
-        if ((chunk.data || []).length > 0) lastId = chunk.data[chunk.data.length - 1].id;
-        if (allSessions.length >= 500) break;
-      }
+      try {
+      let allSessions = await listStripeCheckoutSessions(500);
       res.locals._stripeSessionsCount = allSessions.length;
       // Inclure toutes les sessions avec metadata (notre formulaire) OU toute session payée (au cas où metadata manquante)
       const stripeBookings = (allSessions || [])
@@ -401,6 +417,12 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         if (!b.created_at) return -1;
         return new Date(b.created_at) - new Date(a.created_at);
       });
+      } catch (stripeErr) {
+        console.error('Stripe admin bookings:', stripeErr.message || stripeErr);
+        if (redisBookingsSnapshot !== null) {
+          bookings = redisBookingsSnapshot;
+        }
+      }
     }
 
     // 2) Sinon Redis (Vercel sans Stripe)

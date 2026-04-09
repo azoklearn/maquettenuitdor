@@ -398,6 +398,9 @@
           }
           if (data._debug) console.log('Réservation créée — domaine de retour:', data._debug.success_url_base);
           if (data.url) {
+            try {
+              sessionStorage.removeItem('nuitdor_reservation_recap');
+            } catch (e) {}
             window.location.href = data.url;
             return;
           }
@@ -435,7 +438,68 @@
     });
   }
 
-  // Message succès / annulation
+  // Message succès / annulation (récap persisté : sinon au rafraîchissement l’URL n’a plus session_id)
+  var RECAP_STORAGE_KEY = 'nuitdor_reservation_recap';
+  var RECAP_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+  function fillRecapSuccessFromBooking(b) {
+    var elNom = document.getElementById('recap-success-nom');
+    var elDates = document.getElementById('recap-success-dates');
+    var elOpt = document.getElementById('recap-success-options');
+    var elTot = document.getElementById('recap-success-total');
+    if (!elDates) return;
+    if (!b) {
+      if (elNom) elNom.textContent = '';
+      elDates.textContent = 'Votre paiement a bien été reçu.';
+      if (elOpt) elOpt.textContent = '';
+      if (elTot) elTot.textContent = '';
+      return;
+    }
+    if (elNom) elNom.textContent = b.nom || '';
+    var d1 = b.date_arrivee ? parseLocalDate(b.date_arrivee) : null;
+    var d2 = b.date_depart ? parseLocalDate(b.date_depart) : null;
+    var datesStr = (d1 && d2)
+      ? 'Du ' + d1.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' au ' + d2.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      : (b.date_arrivee + ' → ' + b.date_depart);
+    elDates.textContent = datesStr;
+    var optKeys = (b.options || '').split(',').filter(Boolean);
+    var optionsStr = optKeys.length ? optKeys.map(function (k) { return OPTION_LABELS[k] || k; }).join(', ') : 'Aucune option';
+    if (elOpt) elOpt.textContent = 'Options : ' + optionsStr;
+    var totalEuros = b.amount_cents ? (b.amount_cents / 100).toFixed(2).replace('.', ',') : '—';
+    if (elTot) elTot.textContent = 'Total payé : ' + totalEuros + ' €';
+  }
+
+  function saveRecapToSession(booking, stripeSessionId) {
+    try {
+      sessionStorage.setItem(RECAP_STORAGE_KEY, JSON.stringify({
+        booking: booking || null,
+        sessionId: stripeSessionId || null,
+        savedAt: Date.now()
+      }));
+    } catch (e) {}
+  }
+
+  function tryRestoreRecapFromSession() {
+    try {
+      var raw = sessionStorage.getItem(RECAP_STORAGE_KEY);
+      if (!raw) return false;
+      var o = JSON.parse(raw);
+      if (!o || typeof o.savedAt !== 'number') return false;
+      if (Date.now() - o.savedAt > RECAP_MAX_AGE_MS) {
+        sessionStorage.removeItem(RECAP_STORAGE_KEY);
+        return false;
+      }
+      if (form) form.style.display = 'none';
+      if (recapBlock) recapBlock.style.display = 'none';
+      var recapSuccess = document.getElementById('recap-success');
+      if (recapSuccess) recapSuccess.style.display = 'block';
+      fillRecapSuccessFromBooking(o.booking);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   var params = new URLSearchParams(window.location.search);
   if (params.get('success') === '1') {
     if (recapBlock) recapBlock.style.display = 'none';
@@ -458,26 +522,14 @@
           try {
             var data = JSON.parse(xhr.responseText);
             if (data.booking) {
-              var b = data.booking;
-              document.getElementById('recap-success-nom').textContent = b.nom || '';
-              var d1 = b.date_arrivee ? parseLocalDate(b.date_arrivee) : null;
-              var d2 = b.date_depart ? parseLocalDate(b.date_depart) : null;
-              var datesStr = (d1 && d2) ? 'Du ' + d1.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' au ' + d2.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : (b.date_arrivee + ' → ' + b.date_depart);
-              document.getElementById('recap-success-dates').textContent = datesStr;
-              var optKeys = (b.options || '').split(',').filter(Boolean);
-              var optionsStr = optKeys.length ? optKeys.map(function (k) { return OPTION_LABELS[k] || k; }).join(', ') : 'Aucune option';
-              document.getElementById('recap-success-options').textContent = 'Options : ' + optionsStr;
-              var totalEuros = b.amount_cents ? (b.amount_cents / 100).toFixed(2).replace('.', ',') : '—';
-              document.getElementById('recap-success-total').textContent = 'Total payé : ' + totalEuros + ' €';
+              saveRecapToSession(data.booking, sessionId);
+              fillRecapSuccessFromBooking(data.booking);
             } else {
-              document.getElementById('recap-success-dates').textContent = 'Votre paiement a bien été reçu.';
-              document.getElementById('recap-success-options').textContent = '';
-              document.getElementById('recap-success-total').textContent = '';
+              saveRecapToSession(null, sessionId);
+              fillRecapSuccessFromBooking(null);
             }
           } catch (e) {
-            document.getElementById('recap-success-dates').textContent = 'Votre paiement a bien été reçu.';
-            document.getElementById('recap-success-options').textContent = '';
-            document.getElementById('recap-success-total').textContent = '';
+            fillRecapSuccessFromBooking(null);
           }
         }
       };
@@ -486,10 +538,7 @@
         if (form) form.style.display = 'none';
         if (recapSuccess) {
           recapSuccess.style.display = 'block';
-          document.getElementById('recap-success-nom').textContent = '';
-          document.getElementById('recap-success-dates').textContent = 'Votre paiement a bien été reçu.';
-          document.getElementById('recap-success-options').textContent = '';
-          document.getElementById('recap-success-total').textContent = '';
+          fillRecapSuccessFromBooking(null);
         }
         alert('Merci ! Votre réservation est confirmée.');
       };
@@ -498,6 +547,8 @@
       window.history.replaceState({}, document.title, window.location.pathname);
       alert('Merci ! Votre réservation est confirmée.');
     }
+  } else if (tryRestoreRecapFromSession()) {
+    /* récap rechargé depuis le navigateur après rafraîchissement */
   }
   if (params.get('cancel') === '1') {
     window.history.replaceState({}, document.title, window.location.pathname);
