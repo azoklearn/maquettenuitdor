@@ -153,6 +153,24 @@ async function addCancelledBookingToStore(id) {
   }
 }
 
+async function removeCancelledBookingFromStore(id) {
+  const key = String(id);
+  if (!key) return false;
+  const redis = getRedisClient();
+  if (!redis) return false;
+  try {
+    const list = await getCancelledBookingsFromStore();
+    const idx = list.indexOf(key);
+    if (idx === -1) return false;
+    list.splice(idx, 1);
+    await redis.set(CANCELLED_BOOKINGS_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    console.error('Redis remove cancelled_booking:', e);
+    return false;
+  }
+}
+
 async function getBookingsFromStore() {
   const redis = getRedisClient();
   if (!redis) return [];
@@ -201,6 +219,9 @@ async function addBookingToStore(booking) {
       list.push(b);
     }
     await redis.set(BOOKINGS_KEY, JSON.stringify(list));
+    // Sur Vercel (db mémoire), des IDs peuvent être réutilisés : on enlève une annulation
+    // obsolète portant le même id pour éviter de masquer la nouvelle réservation.
+    await removeCancelledBookingFromStore(booking.id);
     return true;
   } catch (e) {
     console.error('Redis add booking:', e);
@@ -218,6 +239,7 @@ async function setBookingPaidInStore(bookingId, stripeSessionId) {
     b.status = 'paid';
     b.stripe_session_id = stripeSessionId;
     await redis.set(BOOKINGS_KEY, JSON.stringify(list));
+    await removeCancelledBookingFromStore(bookingId);
     return true;
   } catch (e) {
     console.error('Redis set booking paid:', e);
@@ -239,6 +261,7 @@ async function ensurePaidBookingInStore(bookingId, stripeSessionId, metadata) {
       if (!existing.nom && metadata.nom) existing.nom = metadata.nom;
       if (!existing.email && metadata.email) existing.email = metadata.email;
       await redis.set(BOOKINGS_KEY, JSON.stringify(list));
+      await removeCancelledBookingFromStore(bookingId);
       return true;
     }
     const created = metadata.created ? metadata.created : new Date().toISOString();
@@ -256,6 +279,7 @@ async function ensurePaidBookingInStore(bookingId, stripeSessionId, metadata) {
       created_at: created
     });
     await redis.set(BOOKINGS_KEY, JSON.stringify(list));
+    await removeCancelledBookingFromStore(bookingId);
     return true;
   } catch (e) {
     console.error('Redis ensure paid booking:', e);
@@ -298,6 +322,7 @@ module.exports = {
   removeBlockedDateFromStore,
   getCancelledBookingsFromStore,
   addCancelledBookingToStore,
+  removeCancelledBookingFromStore,
   getBookingsFromStore,
   addBookingToStore,
   setBookingPaidInStore,
