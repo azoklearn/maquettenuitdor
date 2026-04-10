@@ -239,7 +239,6 @@ async function setBookingPaidInStore(bookingId, stripeSessionId) {
     b.status = 'paid';
     b.stripe_session_id = stripeSessionId;
     await redis.set(BOOKINGS_KEY, JSON.stringify(list));
-    await removeCancelledBookingFromStore(bookingId);
     return true;
   } catch (e) {
     console.error('Redis set booking paid:', e);
@@ -261,7 +260,6 @@ async function ensurePaidBookingInStore(bookingId, stripeSessionId, metadata) {
       if (!existing.nom && metadata.nom) existing.nom = metadata.nom;
       if (!existing.email && metadata.email) existing.email = metadata.email;
       await redis.set(BOOKINGS_KEY, JSON.stringify(list));
-      await removeCancelledBookingFromStore(bookingId);
       return true;
     }
     const created = metadata.created ? metadata.created : new Date().toISOString();
@@ -279,7 +277,6 @@ async function ensurePaidBookingInStore(bookingId, stripeSessionId, metadata) {
       created_at: created
     });
     await redis.set(BOOKINGS_KEY, JSON.stringify(list));
-    await removeCancelledBookingFromStore(bookingId);
     return true;
   } catch (e) {
     console.error('Redis ensure paid booking:', e);
