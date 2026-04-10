@@ -215,7 +215,7 @@ app.get('/api/booked-dates', async (req, res) => {
       const idKey = bookingId != null ? String(bookingId) : null;
       const sidKey = stripeSessionId ? String(stripeSessionId) : null;
       return !!(
-        (idKey && (cancelledSet.has(idKey) || cancelledSet.has('id:' + idKey))) ||
+        (idKey && cancelledSet.has('id:' + idKey)) ||
         (sidKey && cancelledSet.has('sess:' + sidKey))
       );
     }
@@ -304,7 +304,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
       const idKey = bookingId != null ? String(bookingId) : null;
       const sidKey = stripeSessionId ? String(stripeSessionId) : null;
       return !!(
-        (idKey && (cancelledSet.has(idKey) || cancelledSet.has('id:' + idKey))) ||
+        (idKey && cancelledSet.has('id:' + idKey)) ||
         (sidKey && cancelledSet.has('sess:' + sidKey))
       );
     }
