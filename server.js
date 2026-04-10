@@ -513,19 +513,34 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
 
 app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  if (!id) return res.status(400).json({ error: 'ID invalide' });
+  const stripeSessionIdRaw =
+    (req.query && req.query.stripe_session_id) ||
+    (req.body && req.body.stripe_session_id) ||
+    '';
+  const stripeSessionId = String(stripeSessionIdRaw || '').trim();
+  const hasValidId = Number.isFinite(id) && id > 0;
+  if (!hasValidId && !stripeSessionId) {
+    return res.status(400).json({ error: 'ID ou stripe_session_id invalide' });
+  }
   try {
     // Avec Redis : on marque la réservation comme « annulée » pour libérer les dates.
     if (blockedStore.useRedis()) {
       const redisList = await blockedStore.getBookingsFromStore();
-      const booking = (redisList || []).find((b) => Number(b.id) === id);
-      await blockedStore.addCancelledBookingToStore('id:' + String(id));
-      if (booking && booking.stripe_session_id) {
-        await blockedStore.addCancelledBookingToStore('sess:' + String(booking.stripe_session_id));
+      const booking = (redisList || []).find((b) => {
+        if (hasValidId && Number(b.id) === id) return true;
+        return stripeSessionId && String(b.stripe_session_id || '') === stripeSessionId;
+      });
+      if (hasValidId) {
+        await blockedStore.addCancelledBookingToStore('id:' + String(id));
+      }
+      const sidToCancel = stripeSessionId || (booking && booking.stripe_session_id) || '';
+      if (sidToCancel) {
+        await blockedStore.addCancelledBookingToStore('sess:' + String(sidToCancel));
       }
       return res.json({ ok: true });
     }
 
+    if (!hasValidId) return res.status(400).json({ error: 'ID invalide' });
     const deleted = db.deleteBooking(id);
     if (!deleted) return res.status(404).json({ error: 'Réservation introuvable' });
     res.json({ ok: true });

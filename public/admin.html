@@ -195,11 +195,11 @@
             '<td>' + escapeHtml(packStr) + '</td>' +
             '<td>' + totalEuros + '</td>' +
             '<td><span class="admin-status admin-status-' + statusClass + '">' + escapeHtml(statusLabel) + '</span></td>' +
-            '<td><button type="button" class="admin-btn admin-btn-danger" data-id="' + b.id + '">Supprimer</button></td>';
+            '<td><button type="button" class="admin-btn admin-btn-danger" data-id="' + (b.id || '') + '" data-session="' + escapeHtml(b.stripe_session_id || '') + '">Supprimer</button></td>';
           tbody.appendChild(tr);
           tr.querySelector('.admin-btn-danger').addEventListener('click', function () {
             if (!confirm('Supprimer cette réservation ? Les dates seront à nouveau disponibles.')) return;
-            deleteBooking(b.id, tr);
+            deleteBooking(b.id, b.stripe_session_id, tr);
           });
         });
       }
@@ -220,10 +220,16 @@
     return div.innerHTML;
   }
 
-  function deleteBooking(id, rowEl) {
+  function deleteBooking(id, stripeSessionId, rowEl) {
     var pwd = getPassword();
     var xhr = new XMLHttpRequest();
-    xhr.open('DELETE', API_BASE + '/api/admin/bookings/' + id, true);
+    var numericId = Number(id);
+    var safeId = Number.isFinite(numericId) && numericId > 0 ? numericId : 0;
+    var url = API_BASE + '/api/admin/bookings/' + safeId;
+    if (stripeSessionId) {
+      url += '?stripe_session_id=' + encodeURIComponent(String(stripeSessionId));
+    }
+    xhr.open('DELETE', url, true);
     xhr.setRequestHeader('X-Admin-Password', pwd);
     xhr.onload = function () {
       if (xhr.status === 401) {
