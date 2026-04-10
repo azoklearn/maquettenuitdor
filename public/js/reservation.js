@@ -136,9 +136,9 @@
     // 0 = dimanche, 1 = lundi, ..., 6 = samedi
     var day = date.getDay();
     // Vendredi (5) et samedi (6) = week-end
-    if (day === 5 || day === 6) return 205;
+    if (day === 5 || day === 6) return 229;
     // Dimanche traité comme semaine par défaut
-    return 155;
+    return 169;
   }
 
   function computeBaseAmount(d1, d2) {

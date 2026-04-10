@@ -28,8 +28,8 @@ async function listStripeCheckoutSessions(maxTotal = 500) {
   return allSessions.slice(0, cap);
 }
 
-const WEEK_PRICE = 155;      // nuit en semaine (lundi-jeudi, + dimanche)
-const WEEKEND_PRICE = 205;   // nuit de week-end (vendredi-samedi)
+const WEEK_PRICE = 169;      // nuit en semaine (lundi-jeudi, + dimanche)
+const WEEKEND_PRICE = 229;   // nuit de week-end (vendredi-samedi)
 
 const OPTION_PRICES = {
   petales: 30,
