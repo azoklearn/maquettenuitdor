@@ -3,125 +3,158 @@
  * - dates bloquées (indisponibles au calendrier)
  * - réservations « supprimées » côté admin (à ignorer pour les indispos)
  *
- * Sur Vercel, utilise Upstash Redis pour que ces infos persistent entre les requêtes.
+ * Sur Vercel, utilise Upstash Redis (REST) via les variables injectées par le Marketplace
+ * ou définies à la main (KV_REST_* ou UPSTASH_REDIS_REST_*).
  */
 
 const BLOCKED_DATES_KEY = 'nuitdor_blocked_dates';
 const CANCELLED_BOOKINGS_KEY = 'nuitdor_cancelled_bookings';
 const BOOKINGS_KEY = 'nuitdor_bookings';
 
-let redis = null;
-try {
-  const redisUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-  if (redisUrl && redisToken) {
-    const { Redis } = require('@upstash/redis');
-    redis = new Redis({ url: redisUrl, token: redisToken });
+function trimEnv(v) {
+  if (v == null || v === '') return '';
+  return String(v).trim();
+}
+
+/** Résout URL + token REST (plusieurs noms selon Upstash / ancien KV Vercel / copier-coller). */
+function resolveRedisEnv() {
+  const url = trimEnv(process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL);
+  const token = trimEnv(process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN);
+  return { url, token };
+}
+
+let _redis = null;
+let _redisInitDone = false;
+
+/**
+ * Client Redis lazy : les variables d’env sont relues au premier usage
+ * (évite les échecs silencieux si le module était chargé trop tôt).
+ */
+function getRedisClient() {
+  if (_redisInitDone) return _redis;
+  _redisInitDone = true;
+  const { url, token } = resolveRedisEnv();
+  if (!url || !token) {
+    if (process.env.VERCEL) {
+      console.warn(
+        "[nuitdor] Redis non configuré : ajoutez KV_REST_API_URL + KV_REST_API_TOKEN " +
+          '(ou UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN) dans Vercel → Settings → Environment Variables, puis redéployez.'
+      );
+    }
+    _redis = null;
+    return null;
   }
-} catch (e) {
-  console.warn('Redis non disponible pour dates bloquées:', e.message);
+  try {
+    const { Redis } = require('@upstash/redis');
+    _redis = new Redis({ url, token });
+    return _redis;
+  } catch (e) {
+    console.warn('[nuitdor] Redis init impossible:', e.message || e);
+    _redis = null;
+    return null;
+  }
+}
+
+function useRedis() {
+  return !!getRedisClient();
 }
 
 async function getBlockedDatesFromStore() {
-  if (redis) {
-    try {
-      const raw = await redis.get(BLOCKED_DATES_KEY);
-      if (Array.isArray(raw)) return raw;
-      if (typeof raw === 'string') {
-        try {
-          const parsed = JSON.parse(raw);
-          return Array.isArray(parsed) ? parsed : [];
-        } catch (_) {
-          return [];
-        }
+  const redis = getRedisClient();
+  if (!redis) return [];
+  try {
+    const raw = await redis.get(BLOCKED_DATES_KEY);
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        return [];
       }
-      return [];
-    } catch (e) {
-      console.error('Redis get blocked_dates:', e);
-      return [];
     }
+    return [];
+  } catch (e) {
+    console.error('Redis get blocked_dates:', e);
+    return [];
   }
-  return [];
 }
 
 async function getCancelledBookingsFromStore() {
-  if (redis) {
-    try {
-      const raw = await redis.get(CANCELLED_BOOKINGS_KEY);
-      if (Array.isArray(raw)) return raw.map((x) => String(x));
-      if (typeof raw === 'string') {
-        try {
-          const parsed = JSON.parse(raw);
-          return Array.isArray(parsed) ? parsed.map((x) => String(x)) : [];
-        } catch (_) {
-          return [];
-        }
+  const redis = getRedisClient();
+  if (!redis) return [];
+  try {
+    const raw = await redis.get(CANCELLED_BOOKINGS_KEY);
+    if (Array.isArray(raw)) return raw.map((x) => String(x));
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map((x) => String(x)) : [];
+      } catch (_) {
+        return [];
       }
-      return [];
-    } catch (e) {
-      console.error('Redis get cancelled_bookings:', e);
-      return [];
     }
+    return [];
+  } catch (e) {
+    console.error('Redis get cancelled_bookings:', e);
+    return [];
   }
-  return [];
 }
 
 async function addBlockedDateToStore(date) {
   const d = String(date).slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
-  if (redis) {
-    try {
-      const list = await getBlockedDatesFromStore();
-      if (list.includes(d)) return false;
-      list.push(d);
-      list.sort();
-      await redis.set(BLOCKED_DATES_KEY, JSON.stringify(list));
-      return true;
-    } catch (e) {
-      console.error('Redis set blocked_dates:', e);
-      return false;
-    }
+  const redis = getRedisClient();
+  if (!redis) return false;
+  try {
+    const list = await getBlockedDatesFromStore();
+    if (list.includes(d)) return false;
+    list.push(d);
+    list.sort();
+    await redis.set(BLOCKED_DATES_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    console.error('Redis set blocked_dates:', e);
+    return false;
   }
-  return false;
 }
 
 async function removeBlockedDateFromStore(date) {
   const d = String(date).slice(0, 10);
-  if (redis) {
-    try {
-      const list = await getBlockedDatesFromStore();
-      const idx = list.indexOf(d);
-      if (idx === -1) return false;
-      list.splice(idx, 1);
-      await redis.set(BLOCKED_DATES_KEY, JSON.stringify(list));
-      return true;
-    } catch (e) {
-      console.error('Redis remove blocked_date:', e);
-      return false;
-    }
+  const redis = getRedisClient();
+  if (!redis) return false;
+  try {
+    const list = await getBlockedDatesFromStore();
+    const idx = list.indexOf(d);
+    if (idx === -1) return false;
+    list.splice(idx, 1);
+    await redis.set(BLOCKED_DATES_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    console.error('Redis remove blocked_date:', e);
+    return false;
   }
-  return false;
 }
 
 async function addCancelledBookingToStore(id) {
   const key = String(id);
   if (!key) return false;
-  if (redis) {
-    try {
-      const list = await getCancelledBookingsFromStore();
-      if (list.includes(key)) return false;
-      list.push(key);
-      await redis.set(CANCELLED_BOOKINGS_KEY, JSON.stringify(list));
-      return true;
-    } catch (e) {
-      console.error('Redis set cancelled_bookings:', e);
-      return false;
-    }
+  const redis = getRedisClient();
+  if (!redis) return false;
+  try {
+    const list = await getCancelledBookingsFromStore();
+    if (list.includes(key)) return false;
+    list.push(key);
+    await redis.set(CANCELLED_BOOKINGS_KEY, JSON.stringify(list));
+    return true;
+  } catch (e) {
+    console.error('Redis set cancelled_bookings:', e);
+    return false;
   }
-  return false;
 }
 
 async function getBookingsFromStore() {
+  const redis = getRedisClient();
   if (!redis) return [];
   try {
     const raw = await redis.get(BOOKINGS_KEY);
@@ -142,11 +175,12 @@ async function getBookingsFromStore() {
 }
 
 async function addBookingToStore(booking) {
+  const redis = getRedisClient();
   if (!redis || !booking) return false;
   try {
     const list = await getBookingsFromStore();
     const existing = list.find((x) => Number(x.id) === Number(booking.id));
-    if (existing && existing.status === 'paid') return true; // Ne pas écraser une résa déjà payée (webhook peut avoir écrit avant)
+    if (existing && existing.status === 'paid') return true;
     const b = {
       id: booking.id,
       date_arrivee: booking.date_arrivee,
@@ -175,6 +209,7 @@ async function addBookingToStore(booking) {
 }
 
 async function setBookingPaidInStore(bookingId, stripeSessionId) {
+  const redis = getRedisClient();
   if (!redis) return false;
   try {
     const list = await getBookingsFromStore();
@@ -190,8 +225,8 @@ async function setBookingPaidInStore(bookingId, stripeSessionId) {
   }
 }
 
-/** Enregistre ou met à jour la résa en Redis après paiement (au cas où elle n'a pas été ajoutée à la création). */
 async function ensurePaidBookingInStore(bookingId, stripeSessionId, metadata) {
+  const redis = getRedisClient();
   if (!redis || !metadata) return false;
   try {
     const list = await getBookingsFromStore();
@@ -228,8 +263,33 @@ async function ensurePaidBookingInStore(bookingId, stripeSessionId, metadata) {
   }
 }
 
-function useRedis() {
-  return !!redis;
+/**
+ * Diagnostic sans secrets : utile pour vérifier Vercel / Upstash après déploiement.
+ */
+async function getStorageHealth() {
+  const { url, token } = resolveRedisEnv();
+  const out = {
+    env_url_set: !!url,
+    env_token_set: !!token,
+    redis_client_ok: false,
+    bookings_count: null,
+    read_error: null
+  };
+  const redis = getRedisClient();
+  if (!redis) {
+    out.hint =
+      'Variables REST attendues : KV_REST_API_URL + KV_REST_API_TOKEN (ou UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN). ' +
+      'Vérifie qu’elles sont bien pour Production (pas seulement Preview), sans espace en trop, puis redéploie.';
+    return out;
+  }
+  out.redis_client_ok = true;
+  try {
+    const list = await getBookingsFromStore();
+    out.bookings_count = Array.isArray(list) ? list.length : null;
+  } catch (e) {
+    out.read_error = e.message || String(e);
+  }
+  return out;
 }
 
 module.exports = {
@@ -242,5 +302,6 @@ module.exports = {
   addBookingToStore,
   setBookingPaidInStore,
   ensurePaidBookingInStore,
-  useRedis
+  useRedis,
+  getStorageHealth
 };

@@ -76,7 +76,10 @@ Sans Redis, après un paiement tout semble fonctionner (résa visible, dates blo
    - `KV_REST_API_TOKEN` = le token (ou `UPSTASH_REDIS_REST_TOKEN`)
 4. Redéploie.
 
-Après ça, les réservations et les dates bloquées sont enregistrées dans Redis et restent après rafraîchissement. Tu peux vérifier en appelant `/api/admin/bookings?debug=1` (avec le mot de passe admin) : si `_debug.redis_used` est `true`, Redis est bien utilisé.
+Après ça, les réservations et les dates bloquées sont enregistrées dans Redis et restent après rafraîchissement. Vérifie que les variables sont bien attachées à l’environnement **Production** (pas seulement Preview), puis **redéploie** le projet.
+
+- **Sans mot de passe** : ouvre `https://ton-domaine/api/health-storage` — tu dois voir `redis_client_ok: true` et un `bookings_count` cohérent. Si `env_url_set` ou `env_token_set` est `false`, les variables ne sont pas visibles par le serveur.
+- **Avec l’admin** : `/api/admin/bookings?debug=1` (mot de passe admin) — si `_debug.redis_used` est `true`, Redis est bien utilisé ; le bloc `_debug.storage` reprend le même diagnostic.
 
 ## Structure des fichiers
 

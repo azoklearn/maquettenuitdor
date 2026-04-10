@@ -474,7 +474,18 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
           redisCount = 'error: ' + (e.message || '');
         }
       }
-      out._debug = { stripe_sessions_count: stripe ? (res.locals._stripeSessionsCount ?? null) : null, redis_used: blockedStore.useRedis(), redis_bookings_count: redisCount };
+      let storageHealth = null;
+      try {
+        storageHealth = await blockedStore.getStorageHealth();
+      } catch (e) {
+        storageHealth = { error: e.message || String(e) };
+      }
+      out._debug = {
+        stripe_sessions_count: stripe ? (res.locals._stripeSessionsCount ?? null) : null,
+        redis_used: blockedStore.useRedis(),
+        redis_bookings_count: redisCount,
+        storage: storageHealth
+      };
     }
     res.json(out);
   } catch (err) {
@@ -576,6 +587,17 @@ app.get('/api/stripe-check', async (req, res) => {
   }
 });
 
+// Diagnostic stockage (Redis REST) — sans secrets ; à comparer avec les variables Vercel
+app.get('/api/health-storage', async (req, res) => {
+  try {
+    const health = await blockedStore.getStorageHealth();
+    res.json(health);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 app.get('/api/validate-promo', (req, res) => {
   const code = req.query.code;
   const result = validatePromoCode(code);
@@ -671,7 +693,7 @@ app.post('/api/create-reservation', async (req, res) => {
     });
 
     if (blockedStore.useRedis()) {
-      await blockedStore.addBookingToStore({
+      const stored = await blockedStore.addBookingToStore({
         id: bookingId,
         date_arrivee,
         date_depart,
@@ -682,6 +704,11 @@ app.post('/api/create-reservation', async (req, res) => {
         amount_cents: amountCents,
         created_at: new Date().toISOString()
       });
+      if (!stored) {
+        console.error('[nuitdor] Échec écriture Redis pour la réservation', bookingId, '(Stripe Checkout créé quand même)');
+      }
+    } else if (process.env.VERCEL) {
+      console.warn('[nuitdor] Redis indisponible : la réservation ne sera pas persistée entre instances Vercel (configure KV_REST_* ou UPSTASH_REDIS_REST_*).');
     }
 
     res.json({
