@@ -396,6 +396,21 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         // Si Redis est la source principale, on garde sa liste et on n'ajoute depuis Stripe
         // que les sessions absentes du store (cas rares).
         const redisList = await blockedStore.getBookingsFromStore();
+        bookings = (redisList || [])
+          .filter((b) => !isCancelledBooking(b.id, b.stripe_session_id))
+          .map((b) => ({
+            id: b.id,
+            date_arrivee: b.date_arrivee || '—',
+            date_depart: b.date_depart || '—',
+            pack: b.pack || '',
+            nom: b.nom || '',
+            email: b.email || '',
+            telephone: b.telephone || null,
+            amount_cents: b.amount_cents != null ? b.amount_cents : 0,
+            status: b.status || 'pending',
+            created_at: b.created_at || null,
+            stripe_session_id: b.stripe_session_id || null
+          }));
         const redisSessionIds = new Set((redisList || []).map((x) => x && x.stripe_session_id).filter(Boolean));
         for (const s of stripeBookings || []) {
           if (!s.stripe_session_id) continue;
@@ -413,37 +428,6 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
             status: s.status || 'pending',
             created_at: s.created_at || null,
             stripe_session_id: s.stripe_session_id || null
-          });
-        }
-        for (const b of redisList || []) {
-          if (isCancelledBooking(b.id, b.stripe_session_id)) continue;
-          let status = b.status || 'pending';
-          if (b.stripe_session_id && status === 'pending') {
-            try {
-              const session = await stripe.checkout.sessions.retrieve(b.stripe_session_id);
-              const isPaid = (session.payment_status === 'paid') || (session.status === 'complete');
-              if (isPaid) {
-                status = 'paid';
-                const meta = session.metadata || {};
-                await blockedStore.ensurePaidBookingInStore(b.id, b.stripe_session_id, {
-                  ...meta,
-                  created: session.created ? new Date(session.created * 1000).toISOString() : new Date().toISOString()
-                });
-              }
-            } catch (_) { /* session invalide ou erreur Stripe */ }
-          }
-          bookings.push({
-            id: b.id,
-            date_arrivee: b.date_arrivee || '—',
-            date_depart: b.date_depart || '—',
-            pack: b.pack || '',
-            nom: b.nom || '',
-            email: b.email || '',
-            telephone: b.telephone || null,
-            amount_cents: b.amount_cents != null ? b.amount_cents : 0,
-            status,
-            created_at: b.created_at || null,
-            stripe_session_id: b.stripe_session_id || null
           });
         }
       }
