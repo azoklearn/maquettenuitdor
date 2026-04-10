@@ -373,11 +373,13 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         })
         .filter((b) => !isCancelledBooking(b.id, b.stripe_session_id));
       const stripeSessionIds = new Set(stripeBookings.map((b) => b.stripe_session_id).filter(Boolean));
-      bookings = stripeBookings.map((b) => ({
-        ...b,
-        date_arrivee: b.date_arrivee || '—',
-        date_depart: b.date_depart || '—'
-      }));
+      if (!blockedStore.useRedis()) {
+        bookings = stripeBookings.map((b) => ({
+          ...b,
+          date_arrivee: b.date_arrivee || '—',
+          date_depart: b.date_depart || '—'
+        }));
+      }
 
       if (blockedStore.useRedis()) {
         for (const s of allSessions || []) {
@@ -391,11 +393,30 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
             });
           }
         }
-        // Fusionner Redis : afficher les résas enregistrées en Redis mais absentes de la liste Stripe
+        // Si Redis est la source principale, on garde sa liste et on n'ajoute depuis Stripe
+        // que les sessions absentes du store (cas rares).
         const redisList = await blockedStore.getBookingsFromStore();
+        const redisSessionIds = new Set((redisList || []).map((x) => x && x.stripe_session_id).filter(Boolean));
+        for (const s of stripeBookings || []) {
+          if (!s.stripe_session_id) continue;
+          if (redisSessionIds.has(s.stripe_session_id)) continue;
+          if (isCancelledBooking(s.id, s.stripe_session_id)) continue;
+          bookings.push({
+            id: s.id,
+            date_arrivee: s.date_arrivee || '—',
+            date_depart: s.date_depart || '—',
+            pack: s.pack || '',
+            nom: s.nom || '',
+            email: s.email || '',
+            telephone: s.telephone || null,
+            amount_cents: s.amount_cents != null ? s.amount_cents : 0,
+            status: s.status || 'pending',
+            created_at: s.created_at || null,
+            stripe_session_id: s.stripe_session_id || null
+          });
+        }
         for (const b of redisList || []) {
           if (isCancelledBooking(b.id, b.stripe_session_id)) continue;
-          if (b.stripe_session_id && stripeSessionIds.has(b.stripe_session_id)) continue;
           let status = b.status || 'pending';
           if (b.stripe_session_id && status === 'pending') {
             try {
