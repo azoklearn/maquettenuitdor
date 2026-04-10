@@ -214,10 +214,8 @@ app.get('/api/booked-dates', async (req, res) => {
     function isCancelledBooking(bookingId, stripeSessionId) {
       const idKey = bookingId != null ? String(bookingId) : null;
       const sidKey = stripeSessionId ? String(stripeSessionId) : null;
-      return !!(
-        (idKey && cancelledSet.has('id:' + idKey)) ||
-        (sidKey && cancelledSet.has('sess:' + sidKey))
-      );
+      if (sidKey) return cancelledSet.has('sess:' + sidKey);
+      return !!(idKey && cancelledSet.has('id:' + idKey));
     }
 
     function addDatesFromRange(dateSet, dateArrivee, dateDepart, excludeBookingId, stripeSessionId) {
@@ -303,10 +301,8 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
     function isCancelledBooking(bookingId, stripeSessionId) {
       const idKey = bookingId != null ? String(bookingId) : null;
       const sidKey = stripeSessionId ? String(stripeSessionId) : null;
-      return !!(
-        (idKey && cancelledSet.has('id:' + idKey)) ||
-        (sidKey && cancelledSet.has('sess:' + sidKey))
-      );
+      if (sidKey) return cancelledSet.has('sess:' + sidKey);
+      return !!(idKey && cancelledSet.has('id:' + idKey));
     }
 
     let bookings = [];
