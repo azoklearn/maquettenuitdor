@@ -211,9 +211,17 @@ app.get('/api/booked-dates', async (req, res) => {
       ? await blockedStore.getCancelledBookingsFromStore()
       : [];
     const cancelledSet = new Set((cancelledIds || []).map((x) => String(x)));
+    function isCancelledBooking(bookingId, stripeSessionId) {
+      const idKey = bookingId != null ? String(bookingId) : null;
+      const sidKey = stripeSessionId ? String(stripeSessionId) : null;
+      return !!(
+        (idKey && (cancelledSet.has(idKey) || cancelledSet.has('id:' + idKey))) ||
+        (sidKey && cancelledSet.has('sess:' + sidKey))
+      );
+    }
 
-    function addDatesFromRange(dateSet, dateArrivee, dateDepart, excludeBookingId) {
-      if (excludeBookingId && cancelledSet.has(String(excludeBookingId))) return;
+    function addDatesFromRange(dateSet, dateArrivee, dateDepart, excludeBookingId, stripeSessionId) {
+      if (isCancelledBooking(excludeBookingId, stripeSessionId)) return;
       const start = new Date(dateArrivee);
       const end = new Date(dateDepart);
       if (isNaN(start) || isNaN(end)) return;
@@ -237,7 +245,7 @@ app.get('/api/booked-dates', async (req, res) => {
           if (!isPaid) return;
           const meta = s.metadata || {};
           if (!meta.date_arrivee || !meta.date_depart) return;
-          addDatesFromRange(dateSet, meta.date_arrivee, meta.date_depart, meta.booking_id);
+          addDatesFromRange(dateSet, meta.date_arrivee, meta.date_depart, meta.booking_id, s.id);
         });
       } catch (e) {
         console.error('Stripe booked-dates:', e.message || e);
@@ -249,7 +257,7 @@ app.get('/api/booked-dates', async (req, res) => {
       (list || []).forEach((b) => {
         if (b.status !== 'paid') return;
         if (!b.date_arrivee || !b.date_depart) return;
-        addDatesFromRange(dateSet, b.date_arrivee, b.date_depart, b.id);
+        addDatesFromRange(dateSet, b.date_arrivee, b.date_depart, b.id, b.stripe_session_id);
       });
     }
     if (dateSet.size > 0) {
@@ -292,6 +300,14 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
       ? await blockedStore.getCancelledBookingsFromStore()
       : [];
     const cancelledSet = new Set((cancelledIds || []).map((x) => String(x)));
+    function isCancelledBooking(bookingId, stripeSessionId) {
+      const idKey = bookingId != null ? String(bookingId) : null;
+      const sidKey = stripeSessionId ? String(stripeSessionId) : null;
+      return !!(
+        (idKey && (cancelledSet.has(idKey) || cancelledSet.has('id:' + idKey))) ||
+        (sidKey && cancelledSet.has('sess:' + sidKey))
+      );
+    }
 
     let bookings = [];
 
@@ -300,7 +316,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
     if (blockedStore.useRedis()) {
       const list = await blockedStore.getBookingsFromStore();
       bookings = (list || [])
-        .filter((b) => !cancelledSet.has(String(b.id)))
+        .filter((b) => !isCancelledBooking(b.id, b.stripe_session_id))
         .map((b) => ({
           id: b.id,
           date_arrivee: b.date_arrivee || '—',
@@ -355,7 +371,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
             stripe_session_id: s.id
           };
         })
-        .filter((b) => !b.id || !cancelledSet.has(String(b.id)));
+        .filter((b) => !isCancelledBooking(b.id, b.stripe_session_id));
       const stripeSessionIds = new Set(stripeBookings.map((b) => b.stripe_session_id).filter(Boolean));
       bookings = stripeBookings.map((b) => ({
         ...b,
@@ -378,7 +394,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
         // Fusionner Redis : afficher les résas enregistrées en Redis mais absentes de la liste Stripe
         const redisList = await blockedStore.getBookingsFromStore();
         for (const b of redisList || []) {
-          if (cancelledSet.has(String(b.id))) continue;
+          if (isCancelledBooking(b.id, b.stripe_session_id)) continue;
           if (b.stripe_session_id && stripeSessionIds.has(b.stripe_session_id)) continue;
           let status = b.status || 'pending';
           if (b.stripe_session_id && status === 'pending') {
@@ -429,7 +445,7 @@ app.get('/api/admin/bookings', requireAdmin, async (req, res) => {
     if (bookings.length === 0 && blockedStore.useRedis()) {
       const list = await blockedStore.getBookingsFromStore();
       bookings = list
-        .filter((b) => !cancelledSet.has(String(b.id)))
+        .filter((b) => !isCancelledBooking(b.id, b.stripe_session_id))
         .map((b) => ({
           id: b.id,
           date_arrivee: b.date_arrivee || '—',
@@ -500,7 +516,12 @@ app.delete('/api/admin/bookings/:id', requireAdmin, async (req, res) => {
   try {
     // Avec Redis : on marque la réservation comme « annulée » pour libérer les dates.
     if (blockedStore.useRedis()) {
-      await blockedStore.addCancelledBookingToStore(String(id));
+      const redisList = await blockedStore.getBookingsFromStore();
+      const booking = (redisList || []).find((b) => Number(b.id) === id);
+      await blockedStore.addCancelledBookingToStore('id:' + String(id));
+      if (booking && booking.stripe_session_id) {
+        await blockedStore.addCancelledBookingToStore('sess:' + String(booking.stripe_session_id));
+      }
       return res.json({ ok: true });
     }
 
